@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { ObjectId } from 'mongodb';
 import type {
   AuditEntry,
@@ -100,7 +101,7 @@ export class AuditService {
         semanticVector: [],
         auditorNotes: '',
       },
-      enrichmentJob: { state: 'UNPUBLISHED', requestedAt: now },
+      enrichmentJob: { state: 'UNPUBLISHED', requestedAt: now, requestId: randomUUID() },
       created: now,
       updated: now,
     };
@@ -170,12 +171,25 @@ export class AuditService {
         'aiMetadata.semanticVector': [],
         'enrichmentJob.state': 'UNPUBLISHED',
         'enrichmentJob.requestedAt': now,
+        'enrichmentJob.requestId': randomUUID(),
       };
       if (noteChanged) set['aiMetadata.auditorNotes'] = changes.auditorNotes;
       const updated = await this.repository.updateCore(id, current.evidenceVersion, set);
       if (updated) return updated;
     }
     throw new AuditError(409, 'Entry changed while saving. Please try again.');
+  }
+
+  async retryFailed(rawId: string): Promise<AuditEntry> {
+    const id = entryId(rawId);
+    const current = await this.repository.findById(id);
+    if (!current) throw new AuditError(404, 'Audit entry not found.');
+    if (current.aiMetadata.status !== 'FAILED') {
+      throw new AuditError(409, 'Only failed enrichment can be retried.');
+    }
+    const updated = await this.repository.retryFailed(id, current.evidenceVersion);
+    if (!updated) throw new AuditError(409, 'Entry changed while retrying. Please try again.');
+    return updated;
   }
 
   async findSimilar(rawId: string): Promise<SimilarMatch[]> {

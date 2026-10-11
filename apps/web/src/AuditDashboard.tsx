@@ -180,6 +180,19 @@ export class AuditDashboard extends React.Component<Record<string, never>, Dashb
     }
   };
 
+  retryEnrichment = async (entry: AuditEntry): Promise<void> => {
+    this.setState({ busy: true, error: '', message: '' });
+    try {
+      await apiRequest(`/audit-entries/${entry._id}/retry`, { method: 'POST' });
+      this.setState({ message: `Enrichment queued again for ${entry.evidenceId}.` });
+      await this.loadEntries();
+    } catch (error: unknown) {
+      this.setState({ error: errorMessage(error) });
+    } finally {
+      this.setState({ busy: false });
+    }
+  };
+
   renderEditor(): React.ReactNode {
     const { editor, busy } = this.state;
     if (!editor) return null;
@@ -427,6 +440,15 @@ export class AuditDashboard extends React.Component<Record<string, never>, Dashb
                           <button type="button" onClick={() => this.openEditor(entry, 'core')}>
                             Edit
                           </button>
+                          {entry.aiMetadata.status === 'FAILED' && (
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => this.retryEnrichment(entry)}
+                            >
+                              Retry AI
+                            </button>
+                          )}
                           <button
                             type="button"
                             disabled={busy || entry.aiMetadata.status !== 'COMPLETED'}

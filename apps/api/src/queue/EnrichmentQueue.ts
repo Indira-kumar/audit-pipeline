@@ -7,6 +7,7 @@ export const enrichmentQueueName = 'audit-enrichment';
 export interface EnrichmentJob {
   entryId: string;
   version: number;
+  requestId?: string;
 }
 
 export interface JobPublisher {
@@ -24,9 +25,9 @@ export class EnrichmentQueue implements JobPublisher {
     const entryId = entry._id.toHexString();
     await this.queue.add(
       'enrich',
-      { entryId, version: entry.evidenceVersion },
+      { entryId, version: entry.evidenceVersion, requestId: entry.enrichmentJob.requestId },
       {
-        jobId: `${entryId}-v${entry.evidenceVersion}`,
+        jobId: `${entryId}-v${entry.evidenceVersion}-${entry.enrichmentJob.requestId ?? 'legacy'}`,
         attempts: 3,
         backoff: { type: 'exponential', delay: 1000 },
         removeOnComplete: { age: 86400, count: 1000 },

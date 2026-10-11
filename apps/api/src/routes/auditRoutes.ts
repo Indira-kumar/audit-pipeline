@@ -7,5 +7,6 @@ export function createAuditRouter(controller: AuditController): Router {
   router.post('/', controller.create.bind(controller));
   router.put('/:id', controller.update.bind(controller));
   router.get('/:id/similar', controller.similar.bind(controller));
+  router.post('/:id/retry', controller.retry.bind(controller));
   return router;
 }

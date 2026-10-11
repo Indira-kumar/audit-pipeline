@@ -24,8 +24,8 @@ function semanticVector(entry: AuditEntry): number[] {
 }
 
 export function createAIProvider(): AIProvider {
-  const provider = process.env.AI_PROVIDER ?? 'ollama';
-  const timeoutMs = Number(process.env.AI_TIMEOUT_MS ?? 30000);
+  const provider = process.env.AI_PROVIDER ?? (process.env.MOCK_AI === 'true' ? 'mock' : 'ollama');
+  const timeoutMs = Number(process.env.AI_TIMEOUT_MS ?? 120000);
   if (!Number.isFinite(timeoutMs) || timeoutMs < 1000) throw new Error('Invalid AI_TIMEOUT_MS.');
   if (provider === 'mock') return new MockAIProvider();
   if (provider === 'ollama') {

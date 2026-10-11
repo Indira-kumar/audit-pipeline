@@ -22,7 +22,13 @@ export class OllamaProvider implements AIProvider {
       }),
       signal: AbortSignal.timeout(this.timeoutMs),
     });
-    if (!response.ok) throw new Error(`Ollama request failed (${response.status}).`);
+    if (!response.ok) {
+      const body = (await response.json().catch(() => ({}))) as { error?: unknown };
+      const detail = typeof body.error === 'string' ? ` ${body.error.slice(0, 200)}.` : '';
+      throw new Error(
+        `Ollama request failed (${response.status}).${detail} Check AI_MODEL against ollama list.`,
+      );
+    }
     const body = (await response.json()) as { message?: { content?: unknown } };
     return parseProviderResult(body.message?.content);
   }

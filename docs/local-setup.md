@@ -14,9 +14,10 @@ cp .env.example .env
 ```bash
 npm run db:up
 ollama pull llama3.2
+ollama list
 ```
 
-Ensure Ollama is running at `http://127.0.0.1:11434`. Set `AI_MODEL` in `.env` if you use another model. For a demo without a local model, set `AI_PROVIDER=mock` in `.env`.
+Ensure Ollama is running at `http://127.0.0.1:11434`. `AI_MODEL` must match a name shown by `ollama list`; the default is `llama3.2`. If you change `.env`, restart `npm run dev`. For a demo without a local model, set `AI_PROVIDER=mock` in `.env`.
 
 Then seed examples:
 
@@ -32,7 +33,7 @@ The seed command is safe to run again; it keeps existing entries and edits.
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. Try creating evidence, editing a note, changing an amount, and finding similar cases on a completed seed record. New records pass through `PENDING` and `PROCESSING` to `COMPLETED`; a note edit saves without a new job.
+Open `http://127.0.0.1:5173`. Try creating evidence, editing a note, changing an amount, and finding similar cases on a completed seed record. New records pass through `PENDING` and `PROCESSING` to `COMPLETED`; a note edit saves without a new job. If enrichment failed while the model was unavailable, use **Retry AI** on that row after fixing the model configuration.
 
 The dev command starts the API, worker, and UI. Press `Ctrl+C` to stop them. Run `npm run db:down` when you want to stop MongoDB and Redis.
 

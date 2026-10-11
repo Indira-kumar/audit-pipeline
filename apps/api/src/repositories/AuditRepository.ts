@@ -64,6 +64,40 @@ export class AuditRepository implements AuditStore {
     );
   }
 
+  retryFailed(id: ObjectId, expectedVersion: number): Promise<AuditEntry | null> {
+    const now = new Date();
+    return this.collection.findOneAndUpdate(
+      {
+        _id: id,
+        tenantId: this.tenantId,
+        evidenceVersion: expectedVersion,
+        'aiMetadata.status': 'FAILED',
+        'enrichmentJob.state': 'FAILED',
+      },
+      {
+        $set: {
+          'aiMetadata.status': 'PENDING',
+          'aiMetadata.riskScore': null,
+          'aiMetadata.riskLevel': null,
+          'aiMetadata.aiSummary': null,
+          'aiMetadata.anomalyFlags': [],
+          'aiMetadata.semanticVector': [],
+          'enrichmentJob.state': 'UNPUBLISHED',
+          'enrichmentJob.requestedAt': now,
+          'enrichmentJob.requestId': randomUUID(),
+          updated: now,
+        },
+        $unset: {
+          'enrichmentJob.claimToken': '',
+          'enrichmentJob.leaseUntil': '',
+          'enrichmentJob.startedAt': '',
+          'enrichmentJob.lastError': '',
+        },
+      },
+      { returnDocument: 'after' },
+    );
+  }
+
   findSimilarCandidates(source: AuditEntry): AsyncIterable<SimilarityCandidate> {
     return this.collection
       .find({
@@ -132,12 +166,13 @@ export class AuditRepository implements AuditStore {
     };
   }
 
-  claimPending(id: ObjectId, version: number): Promise<AuditEntry | null> {
+  claimPending(id: ObjectId, version: number, requestId?: string): Promise<AuditEntry | null> {
     return this.collection.findOneAndUpdate(
       {
         _id: id,
         tenantId: this.tenantId,
         evidenceVersion: version,
+        'enrichmentJob.requestId': requestId ?? { $exists: false },
         'aiMetadata.status': { $in: ['PENDING', 'PROCESSING'] },
         'enrichmentJob.state': { $in: ['PUBLISHING', 'PUBLISHED', 'PROCESSING'] },
       },
@@ -183,12 +218,13 @@ export class AuditRepository implements AuditStore {
     });
   }
 
-  async markStalledFailure(id: ObjectId, version: number): Promise<void> {
+  async markStalledFailure(id: ObjectId, version: number, requestId?: string): Promise<void> {
     await this.collection.updateOne(
       {
         _id: id,
         tenantId: this.tenantId,
         evidenceVersion: version,
+        'enrichmentJob.requestId': requestId ?? { $exists: false },
         'aiMetadata.status': 'PROCESSING',
         'enrichmentJob.state': 'PROCESSING',
       },

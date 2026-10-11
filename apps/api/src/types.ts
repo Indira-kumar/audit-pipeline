@@ -39,6 +39,7 @@ export interface AuditEntry {
   enrichmentJob: {
     state: JobState;
     requestedAt: Date;
+    requestId?: string;
     claimToken?: string;
     leaseUntil?: Date;
     startedAt?: Date;
@@ -69,6 +70,7 @@ export interface CoreUpdateSet {
   'aiMetadata.semanticVector': number[];
   'enrichmentJob.state': JobState;
   'enrichmentJob.requestedAt': Date;
+  'enrichmentJob.requestId': string;
 }
 
 export interface SimilarityCandidate {
@@ -98,5 +100,6 @@ export interface AuditStore {
   findById(id: ObjectId): Promise<AuditEntry | null>;
   updateNotes(id: ObjectId, set: NoteUpdateSet): Promise<AuditEntry | null>;
   updateCore(id: ObjectId, expectedVersion: number, set: CoreUpdateSet): Promise<AuditEntry | null>;
+  retryFailed(id: ObjectId, expectedVersion: number): Promise<AuditEntry | null>;
   findSimilarCandidates(source: AuditEntry): AsyncIterable<SimilarityCandidate>;
 }

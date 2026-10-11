@@ -38,6 +38,7 @@ export class AIWorkerService {
               return this.options.repository.markStalledFailure(
                 new ObjectId(job.data.entryId),
                 job.data.version,
+                job.data.requestId,
               );
             }
           })
@@ -54,6 +55,7 @@ export class AIWorkerService {
     const entry = await this.options.repository.claimPending(
       new ObjectId(job.data.entryId),
       job.data.version,
+      job.data.requestId,
     );
     if (!entry) return; // An earlier evidence version or duplicate job.
     try {

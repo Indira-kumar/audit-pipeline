@@ -18,6 +18,11 @@ export class AuditController {
     response.json(entry);
   }
 
+  async retry(request: Request, response: Response): Promise<void> {
+    const entry = await this.service.retryFailed(String(request.params.id));
+    response.json(entry);
+  }
+
   async similar(request: Request, response: Response): Promise<void> {
     const entries = await this.service.findSimilar(String(request.params.id));
     response.json(entries);

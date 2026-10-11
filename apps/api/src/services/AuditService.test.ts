@@ -71,13 +71,41 @@ function fixture() {
         enrichmentJob: {
           state: set['enrichmentJob.state'],
           requestedAt: set['enrichmentJob.requestedAt'],
+          requestId: set['enrichmentJob.requestId'],
         },
+      };
+      return entry;
+    },
+    async retryFailed(_id, version) {
+      if (entry.aiMetadata.status !== 'FAILED' || version !== entry.evidenceVersion) return null;
+      entry = {
+        ...entry,
+        aiMetadata: {
+          ...entry.aiMetadata,
+          status: 'PENDING',
+          riskScore: null,
+          riskLevel: null,
+          aiSummary: null,
+          anomalyFlags: [],
+          semanticVector: [],
+        },
+        enrichmentJob: { state: 'UNPUBLISHED', requestedAt: new Date(), requestId: 'retry-1' },
       };
       return entry;
     },
     async *findSimilarCandidates() {},
   };
-  return { service: new AuditService(repository), id: entry._id.toHexString() };
+  return {
+    service: new AuditService(repository),
+    id: entry._id.toHexString(),
+    fail() {
+      entry = {
+        ...entry,
+        aiMetadata: { ...entry.aiMetadata, status: 'FAILED' },
+        enrichmentJob: { state: 'FAILED', requestedAt: new Date(), lastError: 'Model missing' },
+      };
+    },
+  };
 }
 
 test('auditor note update keeps completed AI results and does not queue a job', async () => {
@@ -99,4 +127,17 @@ test('core update invalidates AI results and preserves the auditor note', async 
   assert.deepEqual(updated.aiMetadata.semanticVector, []);
   assert.equal(updated.enrichmentJob.state, 'UNPUBLISHED');
   assert.equal(updated.evidenceVersion, 2);
+});
+
+test('failed enrichment can be retried without changing evidence or auditor note', async () => {
+  const { service, id, fail } = fixture();
+  await assert.rejects(service.retryFailed(id), { status: 409 });
+  await service.update(id, { auditorNotes: 'Keep this note' });
+  fail();
+  const retried = await service.retryFailed(id);
+  assert.equal(retried.aiMetadata.status, 'PENDING');
+  assert.equal(retried.enrichmentJob.state, 'UNPUBLISHED');
+  assert.equal(retried.enrichmentJob.requestId, 'retry-1');
+  assert.equal(retried.evidenceVersion, 1);
+  assert.equal(retried.aiMetadata.auditorNotes, 'Keep this note');
 });

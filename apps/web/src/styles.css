@@ -19,17 +19,55 @@ body {
   margin: 0;
 }
 
-.page {
+.app-shell {
+  display: grid;
+  grid-template-columns: 228px minmax(0, 1fr);
   min-height: 100vh;
 }
-.topbar {
-  height: 72px;
-  padding: 0 clamp(24px, 5vw, 80px);
+.page {
+  min-width: 0;
+}
+.sidebar {
+  position: sticky;
+  top: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  height: 100vh;
+  padding: 28px 18px 22px;
   background: #fff;
-  border-bottom: 1px solid #dfe8ed;
+  border-right: 1px solid #dfe8ed;
+}
+.sidebar .brand {
+  padding: 0 10px;
+}
+.side-nav {
+  display: grid;
+  gap: 4px;
+  margin-top: 48px;
+}
+.side-nav button {
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #485c67;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: left;
+}
+.side-nav button:hover,
+.side-nav button.active {
+  background: #eaf7f5;
+  color: #0c6d69;
+}
+.side-nav button:focus-visible,
+button:focus-visible {
+  outline: 2px solid #0c6d69;
+  outline-offset: 2px;
+}
+.sidebar .connection {
+  margin: auto 10px 0;
 }
 .brand {
   display: flex;
@@ -319,15 +357,95 @@ td small {
   color: #0c6d69;
   font-weight: 700;
 }
+.similarity-form {
+  display: grid;
+  gap: 18px;
+  max-width: 620px;
+  padding: 0 28px 28px;
+}
+.similarity-form > p:first-child {
+  margin-bottom: 0;
+  color: #637781;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.similarity-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.example-hint {
+  margin-bottom: 0;
+  color: #71848e;
+  font-size: 12px;
+}
+.similarity-notice {
+  margin: 0 28px 24px;
+}
+.similarity-results {
+  padding-top: 22px;
+  border-top: 1px solid #e8eef1;
+}
+.similarity-results h3 {
+  margin: 0 28px 18px;
+  font-size: 15px;
+}
+.match-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.match-heading span {
+  color: #0c6d69;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.match > span {
+  color: #485c67;
+  line-height: 1.5;
+}
+
 @media (max-width: 700px) {
+  .app-shell {
+    display: block;
+  }
+  .sidebar {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    height: auto;
+    padding: 16px;
+    border-right: 0;
+    border-bottom: 1px solid #dfe8ed;
+  }
+  .sidebar .brand {
+    padding: 0;
+  }
+  .sidebar .connection {
+    margin: 0 0 0 auto;
+  }
+  .side-nav {
+    display: flex;
+    width: 100%;
+    margin-top: 14px;
+  }
+  .side-nav button {
+    width: auto;
+  }
   .workspace {
     padding: 0 16px 32px;
   }
   .panel-heading {
     padding: 22px;
   }
-  .entry-form {
+  .entry-form,
+  .similarity-form {
     padding: 0 22px 22px;
+  }
+  .similarity-notice {
+    margin: 0 22px 22px;
   }
   .intro {
     padding-top: 36px;

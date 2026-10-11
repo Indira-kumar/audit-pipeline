@@ -4,19 +4,25 @@ The TypeScript API and React dashboard save audit evidence immediately and queue
 
 ## High-level design
 
-![Audit pipeline HLD](audit-pipeline-hld.png)
+<img src="assets/audit-pipeline-hld.png" alt="Audit pipeline high-level design" width="420">
 
-The design separates fast evidence capture from slower AI processing. A Mongo outbox publishes work to Redis, and separate workers enrich each evidence version.
+## Low-level flows
 
-## Modules
+### 1. Evidence capture and queueing
 
-1. **Input and review:** Create evidence, edit notes or core fields, inspect records, and request similar historical exceptions in the dashboard.
-2. **API and storage:** Validate requests, use targeted MongoDB updates, and atomically mark records for enrichment when core evidence changes.
-3. **Background enrichment:** BullMQ workers call a swappable Ollama, OpenRouter, or mock provider and write version-checked AI results.
+A new record or core edit becomes `PENDING` in MongoDB. The outbox publisher queues it independently of the API response; a note-only edit saves directly.
 
-## Similarity endpoint
+<img src="assets/evidence-capture-queue.png" alt="Evidence capture and queueing flow" width="420">
 
-The assignment shows `POST /api/audit-entries/:id/similar`. This implementation uses `GET` because the request only reads stored entries and returns matches; it does not change audit data. The dashboard calls this GET route.
+### 2. Similarity search
+
+<img src="assets/similarity-search.png" alt="Similarity search flow" width="420">
+
+### 3. Queue and AI enrichment
+
+The worker claims one evidence version, runs both AI adapters, and saves results only while that claim is current. Transient failures retry with jitter; permanent provider errors fail immediately.
+
+<img src="assets/queue-ai-enrichment.png" alt="Queue and AI enrichment flow" width="420">
 
 ## Repository layout
 
@@ -33,6 +39,4 @@ apps/
 
 ## Local setup
 
-See [local setup](docs/local-setup.md) and [enrichment flow](docs/enrichment-pipeline.md).
-
-Seed data includes completed historical examples for similarity search. New records move from `PENDING` to `COMPLETED` through the worker.
+See [local setup](docs/local-setup.md)

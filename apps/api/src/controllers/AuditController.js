@@ -1,25 +1,24 @@
 export class AuditController {
-  constructor(repository) {
-    this.repository = repository;
+  constructor(service) {
+    this.service = service;
   }
 
   async list(_request, response) {
-    response.json(await this.repository.list());
+    response.json(await this.service.list());
   }
 
   async create(request, response) {
-    const entry = await this.repository.create(request.body);
+    const entry = await this.service.create(request.body);
     response.status(201).json(entry);
   }
 
   async update(request, response) {
-    const entry = await this.repository.update(request.params.id, request.body);
+    const entry = await this.service.update(request.params.id, request.body);
     response.json(entry);
   }
 
   async similar(request, response) {
-    const entries = await this.repository.findSimilar(request.params.id);
+    const entries = await this.service.findSimilar(request.params.id);
     response.json(entries);
   }
 }
-

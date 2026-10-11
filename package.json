@@ -3,14 +3,17 @@
   "private": true,
   "workspaces": ["apps/api", "apps/web"],
   "scripts": {
-    "dev": "concurrently -k -n api,worker,web \"npm run dev:api\" \"npm run dev:worker\" \"npm run dev:web\"",
+    "dev": "concurrently -k -n api,web \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "npm run dev -w apps/api",
     "dev:worker": "npm run dev:worker -w apps/api",
     "dev:web": "npm run dev -w apps/web",
-    "build": "npm run build -w apps/web"
+    "seed": "npm run seed -w apps/api",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "build": "npm run build -w apps/web",
+    "test": "npm run test -w apps/api"
   },
   "devDependencies": {
     "concurrently": "8.2.2"
   }
 }
-

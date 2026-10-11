@@ -1,33 +1,57 @@
-function notImplemented() {
-  const error = new Error('Audit persistence is part of the next increment.');
-  error.status = 501;
-  throw error;
-}
-
 export class AuditRepository {
-  async list() {
-    notImplemented();
+  constructor(collection, tenantId) {
+    this.collection = collection;
+    this.tenantId = tenantId;
   }
 
-  async create(_evidence) {
-    notImplemented();
+  list() {
+    return this.collection.find({ tenantId: this.tenantId })
+      .sort({ timestamp: -1 }).limit(100).toArray();
   }
 
-  async update(_id, _changes) {
-    notImplemented();
+  async create(entry) {
+    const document = { ...entry, tenantId: this.tenantId };
+    await this.collection.insertOne(document);
+    return document;
   }
 
-  async findSimilar(_id) {
-    notImplemented();
+  findById(id) {
+    return this.collection.findOne({ _id: id, tenantId: this.tenantId });
+  }
+
+  updateNotes(id, set) {
+    return this.collection.findOneAndUpdate(
+      { _id: id, tenantId: this.tenantId },
+      { $set: set },
+      { returnDocument: 'after' },
+    );
+  }
+
+  updateCore(id, expectedVersion, set) {
+    return this.collection.findOneAndUpdate(
+      { _id: id, tenantId: this.tenantId, evidenceVersion: expectedVersion },
+      { $set: set, $inc: { evidenceVersion: 1 } },
+      { returnDocument: 'after' },
+    );
+  }
+
+  findSimilarCandidates(source) {
+    return this.collection.find({
+      tenantId: this.tenantId,
+      _id: { $ne: source._id },
+      timestamp: { $lt: source.timestamp },
+      'aiMetadata.status': 'COMPLETED',
+      'aiMetadata.semanticVector': { $size: 8 },
+      'aiMetadata.anomalyFlags.0': { $exists: true },
+    }).toArray();
   }
 
   async claimPending() {
-    // A later increment will atomically claim a PENDING record here.
+    // The background enrichment module will consume the job marker later.
     return null;
   }
 
-  async completeEnrichment(_entry, _result) {
-    notImplemented();
+  async completeEnrichment() {
+    throw new Error('Background enrichment is not implemented yet.');
   }
 }
-

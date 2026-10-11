@@ -1,12 +1,18 @@
 # Audit Pipeline
 
-The system saves audit evidence immediately, then enriches relevant records in the background. Auditor note edits take the direct save path; changes to core evidence will trigger fresh enrichment.
+The system saves audit evidence immediately and queues relevant records for background risk enrichment. Auditor note edits take the direct save path; changes to core evidence queue fresh enrichment.
 
 ## High-level design
 
 ![Audit pipeline HLD](audit-pipeline-hld.png)
 
-The design separates fast evidence capture from slower AI processing. A queue lets workers scale independently, while version checks prevent stale AI results from replacing newer evidence.
+The design separates fast evidence capture from slower AI processing. The first two sections are implemented; the background enrichment section is next.
+
+## Modules
+
+1. **Input and review:** Create evidence, edit notes or core fields, inspect records, and request similar historical exceptions in the dashboard.
+2. **API and storage:** Validate requests, use targeted MongoDB updates, and atomically mark records for enrichment when core evidence changes.
+3. **Background enrichment:** Publish jobs, compute AI metadata, and write version-checked results. This module is still pending.
 
 ## Repository layout
 
@@ -15,22 +21,14 @@ apps/
   api/             Express API and background worker
     src/
       controllers/ HTTP request handling
-      repositories/ MongoDB access (next increment)
-      services/     AI enrichment boundary
-      workers/      Background processing loop
+      repositories/ MongoDB access
+      services/     Audit rules and AI boundary
+      workers/      Background processing scaffold
   web/             React dashboard
 ```
 
-## Run the scaffold
+## Local setup
 
-Use Node.js 24 or newer. From this repository's root, run:
+See [docs/local-setup.md](docs/local-setup.md).
 
-```bash
-cp .env.example .env
-npm install
-npm run dev
-```
-
-The dashboard opens at `http://127.0.0.1:5173`. The API health endpoint is `http://localhost:4000/api/health`.
-
-This first increment provides the process entry points and UI shell. Audit persistence, enrichment, delta evaluation, similarity search, and seeding are the next increments.
+Seed data includes completed historical examples so similarity can be tried now. Newly created records remain `PENDING` until the background enrichment module is built.

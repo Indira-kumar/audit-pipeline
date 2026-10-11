@@ -1,12 +1,8 @@
 import express from 'express';
-import { AuditController } from './controllers/AuditController.js';
-import { AuditRepository } from './repositories/AuditRepository.js';
 import { createAuditRouter } from './routes/auditRoutes.js';
 
-export function createApp() {
+export function createApp(controller) {
   const app = express();
-  const repository = new AuditRepository();
-  const controller = new AuditController(repository);
 
   app.use(express.json());
   app.get('/api/health', (_request, response) => {
@@ -15,11 +11,11 @@ export function createApp() {
   app.use('/api/audit-entries', createAuditRouter(controller));
 
   app.use((error, _request, response, _next) => {
-    const status = error.status ?? 500;
+    const status = error.code === 11000 ? 409 : (error.status ?? 500);
     if (status === 500) console.error(error);
-    response.status(status).json({ error: error.message });
+    const message = error.code === 11000 ? 'Evidence ID already exists.' : error.message;
+    response.status(status).json({ error: message });
   });
 
   return app;
 }
-

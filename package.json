@@ -1,0 +1,16 @@
+{
+  "name": "smart-audit-pipeline",
+  "private": true,
+  "workspaces": ["apps/api", "apps/web"],
+  "scripts": {
+    "dev": "concurrently -k -n api,worker,web \"npm run dev:api\" \"npm run dev:worker\" \"npm run dev:web\"",
+    "dev:api": "npm run dev -w apps/api",
+    "dev:worker": "npm run dev:worker -w apps/api",
+    "dev:web": "npm run dev -w apps/web",
+    "build": "npm run build -w apps/web"
+  },
+  "devDependencies": {
+    "concurrently": "8.2.2"
+  }
+}
+

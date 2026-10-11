@@ -1,0 +1,14 @@
+{
+  "name": "@smartaudit/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file-if-exists=../../.env src/server.js",
+    "dev:worker": "node --env-file-if-exists=../../.env src/worker.js",
+    "start": "node --env-file-if-exists=../../.env src/server.js",
+    "start:worker": "node --env-file-if-exists=../../.env src/worker.js"
+  },
+  "dependencies": {
+    "express": "5.2.1"
+  }
+}

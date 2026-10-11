@@ -31,4 +31,4 @@ apps/
 
 See [docs/local-setup.md](docs/local-setup.md).
 
-Seed data includes completed historical examples so similarity can be tried now. Newly created records remain `PENDING` until the background enrichment module is built.
+Seed data includes completed historical examples so [similarity search](docs/similarity-search.md) can be tried now. Newly created records remain `PENDING` until the background enrichment module is built.

@@ -75,9 +75,7 @@ function fixture() {
       };
       return entry;
     },
-    async findSimilarCandidates() {
-      return [];
-    },
+    async *findSimilarCandidates() {},
   };
   return { service: new AuditService(repository), id: entry._id.toHexString() };
 }

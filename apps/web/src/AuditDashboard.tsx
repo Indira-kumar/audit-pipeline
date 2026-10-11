@@ -171,9 +171,7 @@ export class AuditDashboard extends React.Component<Record<string, never>, Dashb
   showSimilar = async (entry: AuditEntry): Promise<void> => {
     this.setState({ busy: true, error: '', matches: null });
     try {
-      const items = await apiRequest<SimilarMatch[]>(`/audit-entries/${entry._id}/similar`, {
-        method: 'POST',
-      });
+      const items = await apiRequest<SimilarMatch[]>(`/audit-entries/${entry._id}/similar`);
       this.setState({ matches: { evidenceId: entry.evidenceId, items } });
     } catch (error: unknown) {
       this.setState({ error: errorMessage(error) });

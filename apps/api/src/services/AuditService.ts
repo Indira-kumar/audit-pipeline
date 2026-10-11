@@ -6,6 +6,7 @@ import type {
   NewAuditEntry,
   SimilarMatch,
 } from '../types.js';
+import { rankSimilarExceptions, validVector } from './SimilarityService.js';
 
 const coreFields = ['monetaryImpact', 'description', 'controlId'] as const;
 const createFields = new Set([
@@ -61,14 +62,6 @@ function amount(value: unknown): number {
 function entryId(value: string): ObjectId {
   if (!ObjectId.isValid(value)) throw new AuditError(400, 'Invalid audit entry ID.');
   return new ObjectId(value);
-}
-
-function cosineSimilarity(left: number[], right: number[]): number | null {
-  if (left.length !== 8 || right.length !== 8) return null;
-  const dot = left.reduce((sum, value, index) => sum + value * (right[index] ?? 0), 0);
-  const leftNorm = Math.hypot(...left);
-  const rightNorm = Math.hypot(...right);
-  return leftNorm && rightNorm ? dot / (leftNorm * rightNorm) : null;
 }
 
 export class AuditService {
@@ -189,29 +182,15 @@ export class AuditService {
     const id = entryId(rawId);
     const source = await this.repository.findById(id);
     if (!source) throw new AuditError(404, 'Audit entry not found.');
-    if (source.aiMetadata.status !== 'COMPLETED' || source.aiMetadata.semanticVector.length !== 8) {
+    if (
+      source.aiMetadata.status !== 'COMPLETED' ||
+      !validVector(source.aiMetadata.semanticVector)
+    ) {
       throw new AuditError(409, 'Similarity is available after enrichment completes.');
     }
-
-    const candidates = await this.repository.findSimilarCandidates(source);
-    const scored: Array<{ entry: AuditEntry; score: number }> = [];
-    for (const entry of candidates) {
-      const score = cosineSimilarity(
-        source.aiMetadata.semanticVector,
-        entry.aiMetadata.semanticVector,
-      );
-      if (score !== null) scored.push({ entry, score });
-    }
-    return scored
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3)
-      .map(({ entry, score }) => ({
-        id: entry._id,
-        evidenceId: entry.evidenceId,
-        entityName: entry.entityName,
-        description: entry.description,
-        riskScore: entry.aiMetadata.riskScore,
-        similarityScore: Number(score.toFixed(3)),
-      }));
+    return rankSimilarExceptions(
+      source.aiMetadata.semanticVector,
+      this.repository.findSimilarCandidates(source),
+    );
   }
 }

@@ -7,6 +7,7 @@ import type {
   EnrichmentResult,
   NewAuditEntry,
   NoteUpdateSet,
+  SimilarityCandidate,
 } from '../types.js';
 
 export class AuditRepository implements AuditStore {
@@ -53,7 +54,7 @@ export class AuditRepository implements AuditStore {
     );
   }
 
-  findSimilarCandidates(source: AuditEntry): Promise<AuditEntry[]> {
+  findSimilarCandidates(source: AuditEntry): AsyncIterable<SimilarityCandidate> {
     return this.collection
       .find({
         tenantId: this.tenantId,
@@ -63,7 +64,16 @@ export class AuditRepository implements AuditStore {
         'aiMetadata.semanticVector': { $size: 8 },
         'aiMetadata.anomalyFlags.0': { $exists: true },
       })
-      .toArray();
+      .project<SimilarityCandidate>({
+        _id: 1,
+        evidenceId: 1,
+        entityName: 1,
+        description: 1,
+        timestamp: 1,
+        'aiMetadata.riskScore': 1,
+        'aiMetadata.semanticVector': 1,
+      })
+      .batchSize(100);
   }
 
   async claimPending(): Promise<AuditEntry | null> {

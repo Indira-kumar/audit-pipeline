@@ -63,6 +63,18 @@ export interface CoreUpdateSet {
   'enrichmentJob.requestedAt': Date;
 }
 
+export interface SimilarityCandidate {
+  _id: ObjectId;
+  evidenceId: string;
+  entityName: string;
+  description: string;
+  timestamp: Date;
+  aiMetadata: {
+    riskScore: number | null;
+    semanticVector: number[];
+  };
+}
+
 export interface SimilarMatch {
   id: ObjectId;
   evidenceId: string;
@@ -78,5 +90,5 @@ export interface AuditStore {
   findById(id: ObjectId): Promise<AuditEntry | null>;
   updateNotes(id: ObjectId, set: NoteUpdateSet): Promise<AuditEntry | null>;
   updateCore(id: ObjectId, expectedVersion: number, set: CoreUpdateSet): Promise<AuditEntry | null>;
-  findSimilarCandidates(source: AuditEntry): Promise<AuditEntry[]>;
+  findSimilarCandidates(source: AuditEntry): AsyncIterable<SimilarityCandidate>;
 }

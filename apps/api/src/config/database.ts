@@ -16,6 +16,7 @@ export async function connectDatabase() {
   await entries.createIndexes([
     { key: { tenantId: 1, evidenceId: 1 }, unique: true },
     { key: { tenantId: 1, timestamp: -1 } },
+    { key: { tenantId: 1, 'aiMetadata.status': 1, timestamp: -1 } },
     { key: { tenantId: 1, 'enrichmentJob.state': 1 } },
   ]);
 

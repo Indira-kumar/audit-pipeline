@@ -1,6 +1,6 @@
 # Audit Pipeline
 
-The system saves audit evidence immediately and queues relevant records for background risk enrichment. Auditor note edits take the direct save path; changes to core evidence queue fresh enrichment.
+The TypeScript API and React dashboard save audit evidence immediately and queues relevant records for background risk enrichment. Auditor note edits take the direct save path; changes to core evidence queue fresh enrichment.
 
 ## High-level design
 

@@ -27,3 +27,11 @@ npm run dev
 Open `http://127.0.0.1:5173`. Try creating evidence, editing a note, changing an amount, and finding similar cases on a completed seed record. New records stay `PENDING` until the AI worker is implemented.
 
 Press `Ctrl+C` to stop the app. Run `npm run db:down` when you want to stop MongoDB.
+
+## Check the code
+
+```bash
+npm run typecheck
+npm run test
+npm run build
+```

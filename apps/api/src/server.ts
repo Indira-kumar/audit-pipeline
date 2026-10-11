@@ -12,7 +12,7 @@ const server = createApp(controller).listen(port, () => {
   console.log(`Audit API listening on http://localhost:${port}`);
 });
 
-async function stop() {
+async function stop(): Promise<void> {
   server.close();
   await client.close();
 }

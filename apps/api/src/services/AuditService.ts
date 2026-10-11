@@ -1,75 +1,79 @@
 import { ObjectId } from 'mongodb';
+import type { AuditEntry, AuditStore, CoreUpdateSet, NewAuditEntry, SimilarMatch } from '../types.js';
 
-const coreFields = ['monetaryImpact', 'description', 'controlId'];
+const coreFields = ['monetaryImpact', 'description', 'controlId'] as const;
 const createFields = new Set([
   'timestamp', 'eventType', 'evidenceId', 'entityName',
   'description', 'monetaryImpact', 'controlId', 'actorUserId',
 ]);
 const updateFields = new Set([...coreFields, 'auditorNotes']);
 
+type CoreField = typeof coreFields[number];
+type Changes = Partial<Pick<AuditEntry, CoreField>> & { auditorNotes?: string };
+
 export class AuditError extends Error {
-  constructor(status, message) {
+  constructor(readonly status: number, message: string) {
     super(message);
-    this.status = status;
   }
 }
 
-function objectInput(value) {
+function objectInput(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new AuditError(400, 'Expected a JSON object.');
   }
-  return value;
+  return value as Record<string, unknown>;
 }
 
-function knownFields(input, allowed) {
-  const unknown = Object.keys(input).filter((key) => !allowed.has(key));
-  if (unknown.length) throw new AuditError(400, `Unknown field: ${unknown[0]}`);
+function knownFields(input: Record<string, unknown>, allowed: Set<string>): void {
+  const unknown = Object.keys(input).find((key) => !allowed.has(key));
+  if (unknown) throw new AuditError(400, `Unknown field: ${unknown}`);
 }
 
-function text(value, name, max = 500) {
+function text(value: unknown, name: string, max = 500): string {
   if (typeof value !== 'string' || !value.trim() || value.length > max) {
     throw new AuditError(400, `${name} must be a non-empty string under ${max} characters.`);
   }
   return value.trim();
 }
 
-function amount(value) {
+function amount(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
     throw new AuditError(400, 'monetaryImpact must be a non-negative number.');
   }
   return value;
 }
 
-function entryId(value) {
+function entryId(value: string): ObjectId {
   if (!ObjectId.isValid(value)) throw new AuditError(400, 'Invalid audit entry ID.');
   return new ObjectId(value);
 }
 
-function cosineSimilarity(left, right) {
+function cosineSimilarity(left: number[], right: number[]): number | null {
   if (left.length !== 8 || right.length !== 8) return null;
-  const dot = left.reduce((sum, value, index) => sum + value * right[index], 0);
+  const dot = left.reduce((sum, value, index) => sum + value * (right[index] ?? 0), 0);
   const leftNorm = Math.hypot(...left);
   const rightNorm = Math.hypot(...right);
   return leftNorm && rightNorm ? dot / (leftNorm * rightNorm) : null;
 }
 
 export class AuditService {
-  constructor(repository) {
-    this.repository = repository;
-  }
+  constructor(private readonly repository: AuditStore) {}
 
-  async list() {
+  list(): Promise<AuditEntry[]> {
     return this.repository.list();
   }
 
-  async create(rawInput) {
+  create(rawInput: unknown): Promise<AuditEntry> {
     const input = objectInput(rawInput);
     knownFields(input, createFields);
+    if (input.timestamp !== undefined && typeof input.timestamp !== 'string') {
+      throw new AuditError(400, 'timestamp must be a date string.');
+    }
     const timestamp = input.timestamp ? new Date(input.timestamp) : new Date();
     if (Number.isNaN(timestamp.getTime())) throw new AuditError(400, 'Invalid timestamp.');
     const now = new Date();
 
-    return this.repository.create({
+    const entry: NewAuditEntry = {
       timestamp,
       eventType: text(input.eventType ?? 'Control Execution', 'eventType', 100),
       evidenceId: text(input.evidenceId, 'evidenceId', 100),
@@ -86,22 +90,20 @@ export class AuditService {
       enrichmentJob: { state: 'UNPUBLISHED', requestedAt: now },
       created: now,
       updated: now,
-    });
+    };
+    return this.repository.create(entry);
   }
 
-  async update(rawId, rawInput) {
+  async update(rawId: string, rawInput: unknown): Promise<AuditEntry> {
     const id = entryId(rawId);
     const input = objectInput(rawInput);
     knownFields(input, updateFields);
     if (!Object.keys(input).length) throw new AuditError(400, 'No fields to update.');
 
-    const changes = {};
-    for (const field of coreFields) {
-      if (!(field in input)) continue;
-      changes[field] = field === 'monetaryImpact'
-        ? amount(input[field])
-        : text(input[field], field, field === 'description' ? 1000 : 100);
-    }
+    const changes: Changes = {};
+    if ('monetaryImpact' in input) changes.monetaryImpact = amount(input.monetaryImpact);
+    if ('description' in input) changes.description = text(input.description, 'description', 1000);
+    if ('controlId' in input) changes.controlId = text(input.controlId, 'controlId', 100);
     if ('auditorNotes' in input) {
       if (typeof input.auditorNotes !== 'string' || input.auditorNotes.length > 2000) {
         throw new AuditError(400, 'auditorNotes must be a string under 2000 characters.');
@@ -112,23 +114,36 @@ export class AuditService {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const current = await this.repository.findById(id);
       if (!current) throw new AuditError(404, 'Audit entry not found.');
-      const set = {};
-      for (const field of coreFields) {
-        if (field in changes && changes[field] !== current[field]) set[field] = changes[field];
-      }
-      if ('auditorNotes' in changes && changes.auditorNotes !== current.aiMetadata.auditorNotes) {
-        set['aiMetadata.auditorNotes'] = changes.auditorNotes;
-      }
-      if (!Object.keys(set).length) return current;
 
-      const coreChanged = coreFields.some((field) => field in set);
+      const coreChanges: Partial<Pick<AuditEntry, CoreField>> = {};
+      if (changes.monetaryImpact !== undefined && changes.monetaryImpact !== current.monetaryImpact) {
+        coreChanges.monetaryImpact = changes.monetaryImpact;
+      }
+      if (changes.description !== undefined && changes.description !== current.description) {
+        coreChanges.description = changes.description;
+      }
+      if (changes.controlId !== undefined && changes.controlId !== current.controlId) {
+        coreChanges.controlId = changes.controlId;
+      }
+      const noteChanged = changes.auditorNotes !== undefined
+        && changes.auditorNotes !== current.aiMetadata.auditorNotes;
+      const coreChanged = Object.keys(coreChanges).length > 0;
+      if (!coreChanged && !noteChanged) return current;
+
       const now = new Date();
-      set.updated = now;
       if (!coreChanged) {
-        return this.repository.updateNotes(id, set);
+        const auditorNotes = changes.auditorNotes;
+        if (auditorNotes === undefined) return current;
+        const updated = await this.repository.updateNotes(id, {
+          updated: now, 'aiMetadata.auditorNotes': auditorNotes,
+        });
+        if (updated) return updated;
+        throw new AuditError(404, 'Audit entry not found.');
       }
 
-      Object.assign(set, {
+      const set: CoreUpdateSet = {
+        ...coreChanges,
+        updated: now,
         'aiMetadata.status': 'PENDING',
         'aiMetadata.riskScore': null,
         'aiMetadata.riskLevel': null,
@@ -137,14 +152,15 @@ export class AuditService {
         'aiMetadata.semanticVector': [],
         'enrichmentJob.state': 'UNPUBLISHED',
         'enrichmentJob.requestedAt': now,
-      });
+      };
+      if (noteChanged) set['aiMetadata.auditorNotes'] = changes.auditorNotes;
       const updated = await this.repository.updateCore(id, current.evidenceVersion, set);
       if (updated) return updated;
     }
     throw new AuditError(409, 'Entry changed while saving. Please try again.');
   }
 
-  async findSimilar(rawId) {
+  async findSimilar(rawId: string): Promise<SimilarMatch[]> {
     const id = entryId(rawId);
     const source = await this.repository.findById(id);
     if (!source) throw new AuditError(404, 'Audit entry not found.');
@@ -153,21 +169,18 @@ export class AuditService {
     }
 
     const candidates = await this.repository.findSimilarCandidates(source);
-    return candidates
-      .map((entry) => ({
-        entry,
-        score: cosineSimilarity(source.aiMetadata.semanticVector, entry.aiMetadata.semanticVector),
-      }))
-      .filter(({ score }) => score !== null)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3)
-      .map(({ entry, score }) => ({
-        id: entry._id,
-        evidenceId: entry.evidenceId,
-        entityName: entry.entityName,
-        description: entry.description,
-        riskScore: entry.aiMetadata.riskScore,
-        similarityScore: Number(score.toFixed(3)),
-      }));
+    const scored: Array<{ entry: AuditEntry; score: number }> = [];
+    for (const entry of candidates) {
+      const score = cosineSimilarity(source.aiMetadata.semanticVector, entry.aiMetadata.semanticVector);
+      if (score !== null) scored.push({ entry, score });
+    }
+    return scored.sort((a, b) => b.score - a.score).slice(0, 3).map(({ entry, score }) => ({
+      id: entry._id,
+      evidenceId: entry.evidenceId,
+      entityName: entry.entityName,
+      description: entry.description,
+      riskScore: entry.aiMetadata.riskScore,
+      similarityScore: Number(score.toFixed(3)),
+    }));
   }
 }

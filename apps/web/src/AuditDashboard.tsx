@@ -1,7 +1,42 @@
 import React from 'react';
-import { apiRequest } from './api.js';
+import { apiRequest } from './api';
+import type { AuditEntry, SimilarMatch } from './types';
 
-const newEntryForm = () => ({
+interface CreateForm {
+  evidenceId: string;
+  entityName: string;
+  description: string;
+  monetaryImpact: string;
+  controlId: string;
+  actorUserId: string;
+}
+
+interface Editor {
+  id: string;
+  evidenceId: string;
+  kind: 'note' | 'core';
+  evidenceVersion: number;
+  description: string;
+  monetaryImpact: string;
+  controlId: string;
+  auditorNotes: string;
+}
+
+interface DashboardState {
+  entries: AuditEntry[];
+  loading: boolean;
+  apiStatus: 'Connecting' | 'Connected' | 'Offline';
+  error: string;
+  message: string;
+  busy: boolean;
+  createForm: CreateForm;
+  editor: Editor | null;
+  matches: { evidenceId: string; items: SimilarMatch[] } | null;
+}
+
+const errorMessage = (error: unknown): string => error instanceof Error ? error.message : 'Request failed.';
+
+const newEntryForm = (): CreateForm => ({
   evidenceId: `EVID-${Date.now().toString().slice(-9)}`,
   entityName: '',
   description: '',
@@ -10,41 +45,43 @@ const newEntryForm = () => ({
   actorUserId: 'user_demo',
 });
 
-const currency = (value) => new Intl.NumberFormat('en-US', {
+const currency = (value: number): string => new Intl.NumberFormat('en-US', {
   style: 'currency', currency: 'USD', maximumFractionDigits: 0,
 }).format(value);
 
-export class AuditDashboard extends React.Component {
-  state = {
+export class AuditDashboard extends React.Component<Record<string, never>, DashboardState> {
+  private refreshTimer: ReturnType<typeof setInterval> | undefined;
+
+  state: DashboardState = {
     entries: [], loading: true, apiStatus: 'Connecting',
     error: '', message: '', busy: false,
     createForm: newEntryForm(), editor: null, matches: null,
   };
 
-  componentDidMount() {
+  componentDidMount(): void {
     this.loadEntries();
     this.refreshTimer = setInterval(this.loadEntries, 5000);
   }
 
-  componentWillUnmount() {
-    clearInterval(this.refreshTimer);
+  componentWillUnmount(): void {
+    if (this.refreshTimer) clearInterval(this.refreshTimer);
   }
 
-  loadEntries = async () => {
+  loadEntries = async (): Promise<void> => {
     try {
-      const entries = await apiRequest('/audit-entries');
+      const entries = await apiRequest<AuditEntry[]>('/audit-entries');
       this.setState({ entries, loading: false, apiStatus: 'Connected', error: '' });
-    } catch (error) {
-      this.setState({ loading: false, apiStatus: 'Offline', error: error.message });
+    } catch (error: unknown) {
+      this.setState({ loading: false, apiStatus: 'Offline', error: errorMessage(error) });
     }
   };
 
-  changeCreate = (event) => {
+  changeCreate = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
     const { name, value } = event.target;
     this.setState((state) => ({ createForm: { ...state.createForm, [name]: value } }));
   };
 
-  createEntry = async (event) => {
+  createEntry = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     this.setState({ busy: true, error: '', message: '' });
     try {
@@ -55,14 +92,14 @@ export class AuditDashboard extends React.Component {
       });
       this.setState({ createForm: newEntryForm(), message: 'Evidence saved as PENDING.' });
       await this.loadEntries();
-    } catch (error) {
-      this.setState({ error: error.message });
+    } catch (error: unknown) {
+      this.setState({ error: errorMessage(error) });
     } finally {
       this.setState({ busy: false });
     }
   };
 
-  openEditor = (entry, kind) => {
+  openEditor = (entry: AuditEntry, kind: Editor['kind']): void => {
     this.setState({
       editor: {
         id: entry._id, evidenceId: entry.evidenceId, kind,
@@ -76,14 +113,15 @@ export class AuditDashboard extends React.Component {
     });
   };
 
-  changeEditor = (event) => {
+  changeEditor = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
     const { name, value } = event.target;
-    this.setState((state) => ({ editor: { ...state.editor, [name]: value } }));
+    this.setState((state) => ({ editor: state.editor ? { ...state.editor, [name]: value } : null }));
   };
 
-  saveEdit = async (event) => {
+  saveEdit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     const editor = this.state.editor;
+    if (!editor) return;
     const changes = editor.kind === 'note'
       ? { auditorNotes: editor.auditorNotes }
       : {
@@ -93,7 +131,7 @@ export class AuditDashboard extends React.Component {
         };
     this.setState({ busy: true, error: '', message: '' });
     try {
-      const updated = await apiRequest(`/audit-entries/${editor.id}`, {
+      const updated = await apiRequest<AuditEntry>(`/audit-entries/${editor.id}`, {
         method: 'PUT', body: JSON.stringify(changes),
       });
       this.setState({
@@ -105,26 +143,26 @@ export class AuditDashboard extends React.Component {
             : 'Evidence updated; enrichment is PENDING.',
       });
       await this.loadEntries();
-    } catch (error) {
-      this.setState({ error: error.message });
+    } catch (error: unknown) {
+      this.setState({ error: errorMessage(error) });
     } finally {
       this.setState({ busy: false });
     }
   };
 
-  showSimilar = async (entry) => {
+  showSimilar = async (entry: AuditEntry): Promise<void> => {
     this.setState({ busy: true, error: '', matches: null });
     try {
-      const items = await apiRequest(`/audit-entries/${entry._id}/similar`, { method: 'POST' });
+      const items = await apiRequest<SimilarMatch[]>(`/audit-entries/${entry._id}/similar`, { method: 'POST' });
       this.setState({ matches: { evidenceId: entry.evidenceId, items } });
-    } catch (error) {
-      this.setState({ error: error.message });
+    } catch (error: unknown) {
+      this.setState({ error: errorMessage(error) });
     } finally {
       this.setState({ busy: false });
     }
   };
 
-  renderEditor() {
+  renderEditor(): React.ReactNode {
     const { editor, busy } = this.state;
     if (!editor) return null;
     const note = editor.kind === 'note';
@@ -140,12 +178,12 @@ export class AuditDashboard extends React.Component {
         <form onSubmit={this.saveEdit} className="entry-form">
           {note ? (
             <label className="field wide">Auditor note
-              <textarea name="auditorNotes" value={editor.auditorNotes} onChange={this.changeEditor} rows="3" />
+              <textarea name="auditorNotes" value={editor.auditorNotes} onChange={this.changeEditor} rows={3} />
             </label>
           ) : (
             <div className="form-grid">
               <label className="field wide">Description
-                <textarea name="description" value={editor.description} onChange={this.changeEditor} rows="3" required />
+                <textarea name="description" value={editor.description} onChange={this.changeEditor} rows={3} required />
               </label>
               <label className="field">Amount (USD)
                 <input name="monetaryImpact" type="number" min="0" step="0.01" value={editor.monetaryImpact} onChange={this.changeEditor} required />
@@ -161,7 +199,7 @@ export class AuditDashboard extends React.Component {
     );
   }
 
-  render() {
+  render(): React.ReactNode {
     const { entries, loading, apiStatus, error, message, busy, createForm, matches } = this.state;
     return (
       <main className="page">
@@ -196,7 +234,7 @@ export class AuditDashboard extends React.Component {
                   <input name="entityName" value={createForm.entityName} onChange={this.changeCreate} placeholder="Vendor or business unit" required />
                 </label>
                 <label className="field wide">Description
-                  <textarea name="description" value={createForm.description} onChange={this.changeCreate} placeholder="What happened?" rows="2" required />
+                  <textarea name="description" value={createForm.description} onChange={this.changeCreate} placeholder="What happened?" rows={2} required />
                 </label>
                 <label className="field">Amount (USD)
                   <input name="monetaryImpact" type="number" min="0" step="0.01" value={createForm.monetaryImpact} onChange={this.changeCreate} required />
@@ -244,8 +282,8 @@ export class AuditDashboard extends React.Component {
                       </div></td>
                     </tr>
                   ))}
-                  {!loading && !entries.length && <tr><td colSpan="7" className="empty-state">No entries yet. Add evidence above or run <code>npm run seed</code>.</td></tr>}
-                  {loading && <tr><td colSpan="7" className="empty-state">Loading entries...</td></tr>}
+                  {!loading && !entries.length && <tr><td colSpan={7} className="empty-state">No entries yet. Add evidence above or run <code>npm run seed</code>.</td></tr>}
+                  {loading && <tr><td colSpan={7} className="empty-state">Loading entries...</td></tr>}
                 </tbody>
               </table>
             </div>

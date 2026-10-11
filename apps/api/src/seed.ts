@@ -1,9 +1,26 @@
+import { ObjectId } from 'mongodb';
 import { connectDatabase, demoTenantId } from './config/database.js';
+import type { AuditEntry, RiskLevel } from './types.js';
 
 const day = 24 * 60 * 60 * 1000;
-const dateDaysAgo = (days) => new Date(Date.now() - days * day);
+const dateDaysAgo = (days: number): Date => new Date(Date.now() - days * day);
 
-const examples = [
+interface SeedExample {
+  evidenceId: string;
+  daysAgo: number;
+  entityName: string;
+  description: string;
+  monetaryImpact: number;
+  controlId: string;
+  actorUserId: string;
+  riskScore: number;
+  riskLevel: RiskLevel;
+  aiSummary: string;
+  anomalyFlags: string[];
+  semanticVector: number[];
+}
+
+const examples: SeedExample[] = [
   {
     evidenceId: 'EVID-902181', daysAgo: 21, entityName: 'Northstar Supplies',
     description: 'Manual approval override for a vendor invoice above the $50k threshold',
@@ -42,9 +59,10 @@ const examples = [
   },
 ];
 
-function completedEntry(example, tenantId) {
+function completedEntry(example: SeedExample, tenantId: ObjectId): AuditEntry {
   const timestamp = dateDaysAgo(example.daysAgo);
   return {
+    _id: new ObjectId(),
     tenantId,
     timestamp,
     eventType: 'Control Execution',
@@ -69,7 +87,8 @@ function completedEntry(example, tenantId) {
 
 const tenantId = demoTenantId();
 const pendingAt = dateDaysAgo(1);
-const pendingEntry = {
+const pendingEntry: AuditEntry = {
+  _id: new ObjectId(),
   tenantId,
   timestamp: pendingAt,
   eventType: 'Control Execution',

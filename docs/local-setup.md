@@ -14,10 +14,11 @@ cp .env.example .env
 ```bash
 npm run db:up
 ollama pull llama3.2
+ollama pull embeddinggemma
 ollama list
 ```
 
-Ensure Ollama is running at `http://127.0.0.1:11434`. `AI_MODEL` must match a name shown by `ollama list`; the default is `llama3.2`. If you change `.env`, restart `npm run dev`. For a demo without a local model, set `AI_PROVIDER=mock` in `.env`.
+Ensure Ollama is running at `http://127.0.0.1:11434`. `AI_MODEL` must match a name shown by `ollama list`; the default is `llama3.2`. If you change `.env`, restart `npm run dev`. For a demo without local models, set `AI_PROVIDER=mock` and `EMBEDDING_PROVIDER=mock` in `.env`. The embedding model can be changed with `EMBEDDING_MODEL`.
 
 Then seed examples:
 
@@ -25,7 +26,7 @@ Then seed examples:
 npm run seed
 ```
 
-The seed command is safe to run again; it keeps existing entries and edits.
+The seed command is safe to run again; it keeps existing entries and edits. It also adds search embeddings to completed records. After changing the embedding model, run `npm run reindex` to rebuild stored vectors.
 
 ## 3. Run the app
 

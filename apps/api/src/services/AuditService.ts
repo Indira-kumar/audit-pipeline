@@ -7,7 +7,7 @@ import type {
   NewAuditEntry,
   SimilarMatch,
 } from '../types.js';
-import { rankSimilarExceptions, validVector } from './SimilarityService.js';
+import { rankSimilarExceptions, validSearchEmbedding } from './SimilarityService.js';
 
 const coreFields = ['monetaryImpact', 'description', 'controlId'] as const;
 const createFields = new Set([
@@ -198,13 +198,13 @@ export class AuditService {
     if (!source) throw new AuditError(404, 'Audit entry not found.');
     if (
       source.aiMetadata.status !== 'COMPLETED' ||
-      !validVector(source.aiMetadata.semanticVector)
+      !validSearchEmbedding(source.aiMetadata.searchEmbedding)
     ) {
-      throw new AuditError(409, 'Similarity is available after enrichment completes.');
+      throw new AuditError(
+        409,
+        'Similarity needs a completed, indexed entry. Run npm run reindex for older records.',
+      );
     }
-    return rankSimilarExceptions(
-      source.aiMetadata.semanticVector,
-      this.repository.findSimilarCandidates(source),
-    );
+    return rankSimilarExceptions(source, this.repository.findSimilarCandidates(source));
   }
 }

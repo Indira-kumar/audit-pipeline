@@ -11,6 +11,7 @@
     "dev:worker": "npm run dev:worker -w apps/api",
     "dev:web": "npm run dev -w apps/web",
     "seed": "npm run seed -w apps/api",
+    "reindex": "npm run reindex -w apps/api",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "build": "npm run build -w apps/api && npm run build -w apps/web",

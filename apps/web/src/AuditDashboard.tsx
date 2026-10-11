@@ -378,7 +378,10 @@ export class AuditDashboard extends React.Component<Record<string, never>, Dashb
                     <span>
                       {item.entityName} · {item.description}
                     </span>
-                    <small>Risk score {item.riskScore ?? '—'}</small>
+                    <small>
+                      Semantic {Math.round(item.semanticScore * 100)}% · Keywords{' '}
+                      {Math.round(item.keywordScore * 100)}% · Risk score {item.riskScore ?? '—'}
+                    </small>
                   </div>
                 ))
               ) : (

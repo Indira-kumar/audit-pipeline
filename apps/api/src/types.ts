@@ -5,6 +5,11 @@ export type AIStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 export type JobState =
   'UNPUBLISHED' | 'PUBLISHING' | 'PUBLISHED' | 'PROCESSING' | 'DONE' | 'FAILED';
 
+export interface SearchEmbedding {
+  model: string;
+  chunks: Array<{ text: string; vector: number[] }>;
+}
+
 export interface AIEnrichment {
   status: AIStatus;
   riskScore: number | null;
@@ -12,6 +17,7 @@ export interface AIEnrichment {
   aiSummary: string | null;
   anomalyFlags: string[];
   semanticVector: number[];
+  searchEmbedding?: SearchEmbedding;
   auditorNotes: string;
 }
 
@@ -21,6 +27,7 @@ export interface EnrichmentResult {
   aiSummary: string;
   anomalyFlags: string[];
   semanticVector: number[];
+  searchEmbedding: SearchEmbedding;
 }
 
 export interface AuditEntry {
@@ -78,10 +85,11 @@ export interface SimilarityCandidate {
   evidenceId: string;
   entityName: string;
   description: string;
+  controlId: string;
   timestamp: Date;
   aiMetadata: {
     riskScore: number | null;
-    semanticVector: number[];
+    searchEmbedding?: SearchEmbedding;
   };
 }
 
@@ -92,6 +100,8 @@ export interface SimilarMatch {
   description: string;
   riskScore: number | null;
   similarityScore: number;
+  semanticScore: number;
+  keywordScore: number;
 }
 
 export interface AuditStore {

@@ -1,5 +1,6 @@
 import { Redis } from 'ioredis';
 import { connectDatabase, demoTenantId } from './config/database.js';
+import { createEmbeddingProvider, EmbeddingService } from './embeddings/EmbeddingService.js';
 import { EnrichmentQueue } from './queue/EnrichmentQueue.js';
 import { OutboxPublisher } from './queue/OutboxPublisher.js';
 import { AuditRepository } from './repositories/AuditRepository.js';
@@ -21,7 +22,7 @@ const publisher = new OutboxPublisher({
 const worker = new AIWorkerService({
   repository,
   publisher,
-  aiService: new AIService(provider),
+  aiService: new AIService(provider, new EmbeddingService(createEmbeddingProvider())),
   connection: workerConnection,
   concurrency: Number(process.env.WORKER_CONCURRENCY ?? 2),
   rateLimitMax: Number(process.env.WORKER_RATE_LIMIT_MAX ?? 2),

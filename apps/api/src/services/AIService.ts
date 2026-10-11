@@ -1,3 +1,4 @@
+import { EmbeddingService } from '../embeddings/EmbeddingService.js';
 import type { AIProvider } from '../providers/AIProvider.js';
 import { MockAIProvider } from '../providers/MockAIProvider.js';
 import { OllamaProvider } from '../providers/OllamaProvider.js';
@@ -45,14 +46,19 @@ export function createAIProvider(): AIProvider {
 }
 
 export class AIService {
-  constructor(private readonly provider: AIProvider) {}
+  constructor(
+    private readonly provider: AIProvider,
+    private readonly embeddings: EmbeddingService,
+  ) {}
 
   async enrich(entry: AuditEntry): Promise<EnrichmentResult> {
     const result = await this.provider.generate(entry);
+    const searchEmbedding = await this.embeddings.embed(entry);
     return {
       ...result,
       riskLevel: riskLevel(result.riskScore),
       semanticVector: semanticVector(entry),
+      searchEmbedding,
     };
   }
 }

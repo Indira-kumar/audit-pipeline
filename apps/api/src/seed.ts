@@ -1,5 +1,7 @@
 import { ObjectId } from 'mongodb';
 import { connectDatabase, demoTenantId } from './config/database.js';
+import { createEmbeddingProvider, EmbeddingService } from './embeddings/EmbeddingService.js';
+import { reindexCompleted } from './embeddings/reindex.js';
 import type { AuditEntry, RiskLevel } from './types.js';
 
 const day = 24 * 60 * 60 * 1000;
@@ -152,7 +154,11 @@ try {
     );
     inserted += result.upsertedCount;
   }
-  console.log(`Seed ready: ${inserted} new entries, ${documents.length} examples total.`);
+  const embeddings = new EmbeddingService(createEmbeddingProvider());
+  const indexed = await reindexCompleted(entries, tenantId, embeddings);
+  console.log(
+    `Seed ready: ${inserted} new entries, ${documents.length} examples total, ${indexed} indexed.`,
+  );
 } finally {
   await client.close();
 }

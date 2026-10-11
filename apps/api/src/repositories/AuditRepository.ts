@@ -20,6 +20,7 @@ export class AuditRepository implements AuditStore {
   list(): Promise<AuditEntry[]> {
     return this.collection
       .find({ tenantId: this.tenantId })
+      .project<AuditEntry>({ 'aiMetadata.searchEmbedding': 0 })
       .sort({ timestamp: -1 })
       .limit(100)
       .toArray();
@@ -58,6 +59,7 @@ export class AuditRepository implements AuditStore {
           'enrichmentJob.leaseUntil': '',
           'enrichmentJob.startedAt': '',
           'enrichmentJob.lastError': '',
+          'aiMetadata.searchEmbedding': '',
         },
       },
       { returnDocument: 'after' },
@@ -92,6 +94,7 @@ export class AuditRepository implements AuditStore {
           'enrichmentJob.leaseUntil': '',
           'enrichmentJob.startedAt': '',
           'enrichmentJob.lastError': '',
+          'aiMetadata.searchEmbedding': '',
         },
       },
       { returnDocument: 'after' },
@@ -105,7 +108,7 @@ export class AuditRepository implements AuditStore {
         _id: { $ne: source._id },
         timestamp: { $lt: source.timestamp },
         'aiMetadata.status': 'COMPLETED',
-        'aiMetadata.semanticVector': { $size: 8 },
+        'aiMetadata.searchEmbedding.model': source.aiMetadata.searchEmbedding?.model,
         'aiMetadata.anomalyFlags.0': { $exists: true },
       })
       .project<SimilarityCandidate>({
@@ -113,9 +116,10 @@ export class AuditRepository implements AuditStore {
         evidenceId: 1,
         entityName: 1,
         description: 1,
+        controlId: 1,
         timestamp: 1,
         'aiMetadata.riskScore': 1,
-        'aiMetadata.semanticVector': 1,
+        'aiMetadata.searchEmbedding': 1,
       })
       .batchSize(100);
   }
@@ -198,6 +202,7 @@ export class AuditRepository implements AuditStore {
         'aiMetadata.aiSummary': result.aiSummary,
         'aiMetadata.anomalyFlags': result.anomalyFlags,
         'aiMetadata.semanticVector': result.semanticVector,
+        'aiMetadata.searchEmbedding': result.searchEmbedding,
         'enrichmentJob.state': 'DONE',
         updated: new Date(),
       },

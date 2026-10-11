@@ -24,4 +24,6 @@ export interface SimilarMatch {
   description: string;
   riskScore: number | null;
   similarityScore: number;
+  semanticScore: number;
+  keywordScore: number;
 }

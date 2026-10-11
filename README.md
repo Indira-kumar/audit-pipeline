@@ -39,4 +39,4 @@ apps/
 
 ## Local setup
 
-See [local setup](docs/local-setup.md)
+See [local setup](docs/local-setup.md) for the full steps.

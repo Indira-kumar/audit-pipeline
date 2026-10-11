@@ -20,9 +20,17 @@ ollama list
 
 Ensure Ollama is running at `http://127.0.0.1:11434`. `AI_MODEL` must match a name shown by `ollama list`; the default is `llama3.2`.
 
-Then seed examples:
+To skip setting up Ollama locally, set both providers in `.env` to `mock`:
+
+```env
+AI_PROVIDER=mock
+EMBEDDING_PROVIDER=mock
+```
+
+Then setup DB and seed examples:
 
 ```bash
+npm run db:up
 npm run seed
 ```
 
@@ -35,6 +43,7 @@ npm run dev
 ```
 
 Open `http://127.0.0.1:5173` for the React dashboard.
+
 ## Check the code
 
 ```bash

@@ -14,6 +14,8 @@ interface WorkerOptions {
   publisher: OutboxPublisher;
   connection: Redis;
   concurrency?: number;
+  rateLimitMax?: number;
+  rateLimitWindowMs?: number;
 }
 
 export class AIWorkerService {
@@ -27,6 +29,10 @@ export class AIWorkerService {
     this.worker = new Worker<EnrichmentJob>(enrichmentQueueName, (job) => this.processJob(job), {
       connection: this.options.connection,
       concurrency: this.options.concurrency ?? 2,
+      limiter: {
+        max: this.options.rateLimitMax ?? 2,
+        duration: this.options.rateLimitWindowMs ?? 1000,
+      },
     });
     this.worker.on('error', (error) => console.error('AI worker error:', error));
     this.worker.on('failed', (job, error) => {

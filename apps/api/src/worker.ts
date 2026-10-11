@@ -24,6 +24,8 @@ const worker = new AIWorkerService({
   aiService: new AIService(provider),
   connection: workerConnection,
   concurrency: Number(process.env.WORKER_CONCURRENCY ?? 2),
+  rateLimitMax: Number(process.env.WORKER_RATE_LIMIT_MAX ?? 2),
+  rateLimitWindowMs: Number(process.env.WORKER_RATE_LIMIT_WINDOW_MS ?? 1000),
 });
 worker.start();
 

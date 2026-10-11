@@ -29,7 +29,7 @@ export class EnrichmentQueue implements JobPublisher {
       {
         jobId: `${entryId}-v${entry.evidenceVersion}-${entry.enrichmentJob.requestId ?? 'legacy'}`,
         attempts: 3,
-        backoff: { type: 'exponential', delay: 1000 },
+        backoff: { type: 'exponential', delay: 5000, jitter: 0.5 },
         removeOnComplete: { age: 86400, count: 1000 },
         removeOnFail: { age: 604800, count: 1000 },
       },

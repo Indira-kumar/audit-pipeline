@@ -1,13 +1,26 @@
 import { ObjectId } from 'mongodb';
 import type { Collection } from 'mongodb';
-import type { AuditEntry, AuditStore, CoreUpdateSet, EnrichmentResult, NewAuditEntry, NoteUpdateSet } from '../types.js';
+import type {
+  AuditEntry,
+  AuditStore,
+  CoreUpdateSet,
+  EnrichmentResult,
+  NewAuditEntry,
+  NoteUpdateSet,
+} from '../types.js';
 
 export class AuditRepository implements AuditStore {
-  constructor(private readonly collection: Collection<AuditEntry>, private readonly tenantId: ObjectId) {}
+  constructor(
+    private readonly collection: Collection<AuditEntry>,
+    private readonly tenantId: ObjectId,
+  ) {}
 
   list(): Promise<AuditEntry[]> {
-    return this.collection.find({ tenantId: this.tenantId })
-      .sort({ timestamp: -1 }).limit(100).toArray();
+    return this.collection
+      .find({ tenantId: this.tenantId })
+      .sort({ timestamp: -1 })
+      .limit(100)
+      .toArray();
   }
 
   async create(entry: NewAuditEntry): Promise<AuditEntry> {
@@ -28,7 +41,11 @@ export class AuditRepository implements AuditStore {
     );
   }
 
-  updateCore(id: ObjectId, expectedVersion: number, set: CoreUpdateSet): Promise<AuditEntry | null> {
+  updateCore(
+    id: ObjectId,
+    expectedVersion: number,
+    set: CoreUpdateSet,
+  ): Promise<AuditEntry | null> {
     return this.collection.findOneAndUpdate(
       { _id: id, tenantId: this.tenantId, evidenceVersion: expectedVersion },
       { $set: set, $inc: { evidenceVersion: 1 } },
@@ -37,14 +54,16 @@ export class AuditRepository implements AuditStore {
   }
 
   findSimilarCandidates(source: AuditEntry): Promise<AuditEntry[]> {
-    return this.collection.find({
-      tenantId: this.tenantId,
-      _id: { $ne: source._id },
-      timestamp: { $lt: source.timestamp },
-      'aiMetadata.status': 'COMPLETED',
-      'aiMetadata.semanticVector': { $size: 8 },
-      'aiMetadata.anomalyFlags.0': { $exists: true },
-    }).toArray();
+    return this.collection
+      .find({
+        tenantId: this.tenantId,
+        _id: { $ne: source._id },
+        timestamp: { $lt: source.timestamp },
+        'aiMetadata.status': 'COMPLETED',
+        'aiMetadata.semanticVector': { $size: 8 },
+        'aiMetadata.anomalyFlags.0': { $exists: true },
+      })
+      .toArray();
   }
 
   async claimPending(): Promise<AuditEntry | null> {

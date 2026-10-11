@@ -31,6 +31,8 @@ Press `Ctrl+C` to stop the app. Run `npm run db:down` when you want to stop Mong
 ## Check the code
 
 ```bash
+npm run lint
+npm run format:check
 npm run typecheck
 npm run test
 npm run build

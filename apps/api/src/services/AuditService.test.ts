@@ -6,25 +6,47 @@ import type { AuditEntry, AuditStore } from '../types.js';
 
 function fixture() {
   let entry: AuditEntry = {
-    _id: new ObjectId(), tenantId: new ObjectId(),
-    timestamp: new Date(), eventType: 'Control Execution', evidenceId: 'EVID-TEST',
-    entityName: 'Vendor', description: 'Invoice approved', monetaryImpact: 65000,
-    controlId: 'CTRL-1', actorUserId: 'user_test', evidenceVersion: 1,
+    _id: new ObjectId(),
+    tenantId: new ObjectId(),
+    timestamp: new Date(),
+    eventType: 'Control Execution',
+    evidenceId: 'EVID-TEST',
+    entityName: 'Vendor',
+    description: 'Invoice approved',
+    monetaryImpact: 65000,
+    controlId: 'CTRL-1',
+    actorUserId: 'user_test',
+    evidenceVersion: 1,
     aiMetadata: {
-      status: 'COMPLETED', riskScore: 82, riskLevel: 'HIGH',
-      aiSummary: 'Approval exception', anomalyFlags: ['MANUAL_OVERRIDE'],
-      semanticVector: [1, 0, 0, 0, 0, 0, 0, 0], auditorNotes: '',
+      status: 'COMPLETED',
+      riskScore: 82,
+      riskLevel: 'HIGH',
+      aiSummary: 'Approval exception',
+      anomalyFlags: ['MANUAL_OVERRIDE'],
+      semanticVector: [1, 0, 0, 0, 0, 0, 0, 0],
+      auditorNotes: '',
     },
     enrichmentJob: { state: 'DONE', requestedAt: new Date() },
-    created: new Date(), updated: new Date(),
+    created: new Date(),
+    updated: new Date(),
   };
   const repository: AuditStore = {
-    async list() { return [entry]; },
-    async create(input) { entry = { ...input, _id: new ObjectId(), tenantId: entry.tenantId }; return entry; },
-    async findById() { return entry; },
+    async list() {
+      return [entry];
+    },
+    async create(input) {
+      entry = { ...input, _id: new ObjectId(), tenantId: entry.tenantId };
+      return entry;
+    },
+    async findById() {
+      return entry;
+    },
     async updateNotes(_id, set) {
-      entry = { ...entry, updated: set.updated,
-        aiMetadata: { ...entry.aiMetadata, auditorNotes: set['aiMetadata.auditorNotes'] } };
+      entry = {
+        ...entry,
+        updated: set.updated,
+        aiMetadata: { ...entry.aiMetadata, auditorNotes: set['aiMetadata.auditorNotes'] },
+      };
       return entry;
     },
     async updateCore(_id, version, set) {
@@ -53,7 +75,9 @@ function fixture() {
       };
       return entry;
     },
-    async findSimilarCandidates() { return []; },
+    async findSimilarCandidates() {
+      return [];
+    },
   };
   return { service: new AuditService(repository), id: entry._id.toHexString() };
 }

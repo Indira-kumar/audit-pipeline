@@ -1,18 +1,33 @@
 import { ObjectId } from 'mongodb';
-import type { AuditEntry, AuditStore, CoreUpdateSet, NewAuditEntry, SimilarMatch } from '../types.js';
+import type {
+  AuditEntry,
+  AuditStore,
+  CoreUpdateSet,
+  NewAuditEntry,
+  SimilarMatch,
+} from '../types.js';
 
 const coreFields = ['monetaryImpact', 'description', 'controlId'] as const;
 const createFields = new Set([
-  'timestamp', 'eventType', 'evidenceId', 'entityName',
-  'description', 'monetaryImpact', 'controlId', 'actorUserId',
+  'timestamp',
+  'eventType',
+  'evidenceId',
+  'entityName',
+  'description',
+  'monetaryImpact',
+  'controlId',
+  'actorUserId',
 ]);
 const updateFields = new Set([...coreFields, 'auditorNotes']);
 
-type CoreField = typeof coreFields[number];
+type CoreField = (typeof coreFields)[number];
 type Changes = Partial<Pick<AuditEntry, CoreField>> & { auditorNotes?: string };
 
 export class AuditError extends Error {
-  constructor(readonly status: number, message: string) {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
     super(message);
   }
 }
@@ -84,8 +99,13 @@ export class AuditService {
       actorUserId: text(input.actorUserId, 'actorUserId', 100),
       evidenceVersion: 1,
       aiMetadata: {
-        status: 'PENDING', riskScore: null, riskLevel: null,
-        aiSummary: null, anomalyFlags: [], semanticVector: [], auditorNotes: '',
+        status: 'PENDING',
+        riskScore: null,
+        riskLevel: null,
+        aiSummary: null,
+        anomalyFlags: [],
+        semanticVector: [],
+        auditorNotes: '',
       },
       enrichmentJob: { state: 'UNPUBLISHED', requestedAt: now },
       created: now,
@@ -116,7 +136,10 @@ export class AuditService {
       if (!current) throw new AuditError(404, 'Audit entry not found.');
 
       const coreChanges: Partial<Pick<AuditEntry, CoreField>> = {};
-      if (changes.monetaryImpact !== undefined && changes.monetaryImpact !== current.monetaryImpact) {
+      if (
+        changes.monetaryImpact !== undefined &&
+        changes.monetaryImpact !== current.monetaryImpact
+      ) {
         coreChanges.monetaryImpact = changes.monetaryImpact;
       }
       if (changes.description !== undefined && changes.description !== current.description) {
@@ -125,8 +148,9 @@ export class AuditService {
       if (changes.controlId !== undefined && changes.controlId !== current.controlId) {
         coreChanges.controlId = changes.controlId;
       }
-      const noteChanged = changes.auditorNotes !== undefined
-        && changes.auditorNotes !== current.aiMetadata.auditorNotes;
+      const noteChanged =
+        changes.auditorNotes !== undefined &&
+        changes.auditorNotes !== current.aiMetadata.auditorNotes;
       const coreChanged = Object.keys(coreChanges).length > 0;
       if (!coreChanged && !noteChanged) return current;
 
@@ -135,7 +159,8 @@ export class AuditService {
         const auditorNotes = changes.auditorNotes;
         if (auditorNotes === undefined) return current;
         const updated = await this.repository.updateNotes(id, {
-          updated: now, 'aiMetadata.auditorNotes': auditorNotes,
+          updated: now,
+          'aiMetadata.auditorNotes': auditorNotes,
         });
         if (updated) return updated;
         throw new AuditError(404, 'Audit entry not found.');
@@ -171,16 +196,22 @@ export class AuditService {
     const candidates = await this.repository.findSimilarCandidates(source);
     const scored: Array<{ entry: AuditEntry; score: number }> = [];
     for (const entry of candidates) {
-      const score = cosineSimilarity(source.aiMetadata.semanticVector, entry.aiMetadata.semanticVector);
+      const score = cosineSimilarity(
+        source.aiMetadata.semanticVector,
+        entry.aiMetadata.semanticVector,
+      );
       if (score !== null) scored.push({ entry, score });
     }
-    return scored.sort((a, b) => b.score - a.score).slice(0, 3).map(({ entry, score }) => ({
-      id: entry._id,
-      evidenceId: entry.evidenceId,
-      entityName: entry.entityName,
-      description: entry.description,
-      riskScore: entry.aiMetadata.riskScore,
-      similarityScore: Number(score.toFixed(3)),
-    }));
+    return scored
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map(({ entry, score }) => ({
+        id: entry._id,
+        evidenceId: entry.evidenceId,
+        entityName: entry.entityName,
+        description: entry.description,
+        riskScore: entry.aiMetadata.riskScore,
+        similarityScore: Number(score.toFixed(3)),
+      }));
   }
 }

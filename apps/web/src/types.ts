@@ -13,6 +13,8 @@ export interface AuditEntry {
     riskScore: number | null;
     riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | null;
     aiSummary: string | null;
+    anomalyFlags: string[];
+    semanticVector: number[];
     auditorNotes: string;
   };
 }

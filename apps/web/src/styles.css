@@ -308,6 +308,50 @@ td small {
   background: #fbe8e6;
   color: #9b332b;
 }
+.ai-details {
+  margin-top: 10px;
+  color: #485c67;
+}
+.ai-details summary {
+  width: fit-content;
+  color: #0c6d69;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+.ai-details summary:focus-visible {
+  outline: 2px solid #0c6d69;
+  outline-offset: 2px;
+}
+.ai-detail-content {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #f5f8fa;
+}
+.ai-detail-content > strong {
+  font-size: 11px;
+}
+.anomaly-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.anomaly-flag {
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #fdf0d4;
+  color: #78551b;
+  font-size: 10px;
+}
+.ai-detail-content code {
+  overflow-wrap: anywhere;
+  color: #273f4b;
+  font-size: 11px;
+  line-height: 1.5;
+}
 .row-actions {
   display: flex;
   flex-wrap: wrap;

@@ -585,6 +585,27 @@ export class AuditDashboard extends React.Component<Record<string, never>, Dashb
                               {entry.aiMetadata.auditorNotes && (
                                 <small>Note: {entry.aiMetadata.auditorNotes}</small>
                               )}
+                              {entry.aiMetadata.status === 'COMPLETED' && (
+                                <details className="ai-details">
+                                  <summary>AI details</summary>
+                                  <div className="ai-detail-content">
+                                    <strong>Anomaly flags</strong>
+                                    <div className="anomaly-flags">
+                                      {entry.aiMetadata.anomalyFlags.length ? (
+                                        entry.aiMetadata.anomalyFlags.map((flag) => (
+                                          <span className="anomaly-flag" key={flag}>
+                                            {flag.replaceAll('_', ' ')}
+                                          </span>
+                                        ))
+                                      ) : (
+                                        <span>None</span>
+                                      )}
+                                    </div>
+                                    <strong>Eight-number vector</strong>
+                                    <code>{JSON.stringify(entry.aiMetadata.semanticVector)}</code>
+                                  </div>
+                                </details>
+                              )}
                             </td>
                             <td>
                               <div className="row-actions">

@@ -1,6 +1,7 @@
 import type { AuditEntry } from '../types.js';
 import { enrichmentSchema, parseProviderResult, promptFor } from './AIProvider.js';
 import type { AIProvider, ProviderResult } from './AIProvider.js';
+import { ProviderHttpError } from './ProviderHttpError.js';
 
 export class OllamaProvider implements AIProvider {
   constructor(
@@ -25,9 +26,8 @@ export class OllamaProvider implements AIProvider {
     if (!response.ok) {
       const body = (await response.json().catch(() => ({}))) as { error?: unknown };
       const detail = typeof body.error === 'string' ? ` ${body.error.slice(0, 200)}.` : '';
-      throw new Error(
-        `Ollama request failed (${response.status}).${detail} Check AI_MODEL against ollama list.`,
-      );
+      const hint = response.status === 404 ? ' Check AI_MODEL against ollama list.' : '';
+      throw new ProviderHttpError('Ollama', response.status, detail + hint);
     }
     const body = (await response.json()) as { message?: { content?: unknown } };
     return parseProviderResult(body.message?.content);

@@ -1,3 +1,4 @@
+import { ProviderHttpError } from '../providers/ProviderHttpError.js';
 import { validEmbedding } from './EmbeddingProvider.js';
 import type { EmbeddingProvider } from './EmbeddingProvider.js';
 
@@ -18,7 +19,8 @@ export class OllamaEmbeddingProvider implements EmbeddingProvider {
     if (!response.ok) {
       const body = (await response.json().catch(() => ({}))) as { error?: unknown };
       const detail = typeof body.error === 'string' ? ` ${body.error.slice(0, 200)}.` : '';
-      throw new Error(`Ollama embedding request failed (${response.status}).${detail}`);
+      const hint = response.status === 404 ? ' Check EMBEDDING_MODEL against ollama list.' : '';
+      throw new ProviderHttpError('Ollama embedding', response.status, detail + hint);
     }
     const body = (await response.json()) as { embeddings?: unknown };
     const vectors = body.embeddings;

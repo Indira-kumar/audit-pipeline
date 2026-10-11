@@ -1,6 +1,7 @@
 import type { AuditEntry } from '../types.js';
 import { enrichmentSchema, parseProviderResult, promptFor } from './AIProvider.js';
 import type { AIProvider, ProviderResult } from './AIProvider.js';
+import { ProviderHttpError } from './ProviderHttpError.js';
 
 export class OpenRouterProvider implements AIProvider {
   constructor(
@@ -28,7 +29,7 @@ export class OpenRouterProvider implements AIProvider {
       }),
       signal: AbortSignal.timeout(this.timeoutMs),
     });
-    if (!response.ok) throw new Error(`OpenRouter request failed (${response.status}).`);
+    if (!response.ok) throw new ProviderHttpError('OpenRouter', response.status);
     const body = (await response.json()) as {
       choices?: Array<{ message?: { content?: unknown } }>;
     };

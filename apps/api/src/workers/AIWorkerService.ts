@@ -1,7 +1,8 @@
-import { Worker } from 'bullmq';
+import { UnrecoverableError, Worker } from 'bullmq';
 import type { Job } from 'bullmq';
 import type { Redis } from 'ioredis';
 import { ObjectId } from 'mongodb';
+import { ProviderHttpError } from '../providers/ProviderHttpError.js';
 import { enrichmentQueueName } from '../queue/EnrichmentQueue.js';
 import type { EnrichmentJob } from '../queue/EnrichmentQueue.js';
 import { OutboxPublisher } from '../queue/OutboxPublisher.js';
@@ -68,12 +69,14 @@ export class AIWorkerService {
       const result = await this.options.aiService.enrich(entry);
       await this.options.repository.completeEnrichment(entry, result);
     } catch (error) {
-      const terminal = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
+      const permanent = error instanceof ProviderHttpError && error.permanent;
+      const terminal = permanent || job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
       await this.options.repository.recordFailure(
         entry,
         error instanceof Error ? error.message : 'AI enrichment failed.',
         terminal,
       );
+      if (permanent) throw new UnrecoverableError(error.message);
       throw error;
     }
   }

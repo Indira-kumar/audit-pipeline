@@ -262,6 +262,14 @@ td small {
   background: #e5f5ec;
   color: #197448;
 }
+.badge.processing {
+  background: #e5efff;
+  color: #265995;
+}
+.badge.failed {
+  background: #fbe8e6;
+  color: #9b332b;
+}
 .row-actions {
   display: flex;
   flex-wrap: wrap;

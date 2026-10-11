@@ -7,9 +7,11 @@ export interface AuditEntry {
   controlId: string;
   actorUserId: string;
   evidenceVersion: number;
+  enrichmentJob: { state: string; lastError?: string };
   aiMetadata: {
     status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
     riskScore: number | null;
+    riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | null;
     aiSummary: string | null;
     auditorNotes: string;
   };

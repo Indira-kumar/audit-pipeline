@@ -2,7 +2,8 @@ import type { ObjectId } from 'mongodb';
 
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 export type AIStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
-export type JobState = 'UNPUBLISHED' | 'PUBLISHED' | 'DONE';
+export type JobState =
+  'UNPUBLISHED' | 'PUBLISHING' | 'PUBLISHED' | 'PROCESSING' | 'DONE' | 'FAILED';
 
 export interface AIEnrichment {
   status: AIStatus;
@@ -35,7 +36,14 @@ export interface AuditEntry {
   actorUserId: string;
   evidenceVersion: number;
   aiMetadata: AIEnrichment;
-  enrichmentJob: { state: JobState; requestedAt: Date };
+  enrichmentJob: {
+    state: JobState;
+    requestedAt: Date;
+    claimToken?: string;
+    leaseUntil?: Date;
+    startedAt?: Date;
+    lastError?: string;
+  };
   created: Date;
   updated: Date;
 }

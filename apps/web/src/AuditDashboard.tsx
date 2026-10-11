@@ -401,9 +401,20 @@ export class AuditDashboard extends React.Component<Record<string, never>, Dashb
                           {entry.aiMetadata.status}
                         </span>
                       </td>
-                      <td>{entry.aiMetadata.riskScore ?? '—'}</td>
                       <td>
-                        <span>{entry.aiMetadata.aiSummary ?? 'Awaiting enrichment'}</span>
+                        {entry.aiMetadata.riskScore === null
+                          ? '—'
+                          : `${entry.aiMetadata.riskLevel} · ${entry.aiMetadata.riskScore}`}
+                      </td>
+                      <td>
+                        <span>
+                          {entry.aiMetadata.aiSummary ??
+                            (entry.aiMetadata.status === 'FAILED'
+                              ? (entry.enrichmentJob.lastError ?? 'Enrichment failed')
+                              : entry.aiMetadata.status === 'PROCESSING'
+                                ? 'Enriching…'
+                                : 'Awaiting enrichment')}
+                        </span>
                         {entry.aiMetadata.auditorNotes && (
                           <small>Note: {entry.aiMetadata.auditorNotes}</small>
                         )}

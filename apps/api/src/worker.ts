@@ -1,19 +1,41 @@
+import { Redis } from 'ioredis';
 import { connectDatabase, demoTenantId } from './config/database.js';
+import { EnrichmentQueue } from './queue/EnrichmentQueue.js';
+import { OutboxPublisher } from './queue/OutboxPublisher.js';
 import { AuditRepository } from './repositories/AuditRepository.js';
-import { AIService } from './services/AIService.js';
+import { AIService, createAIProvider } from './services/AIService.js';
 import { AIWorkerService } from './workers/AIWorkerService.js';
 
+const provider = createAIProvider();
 const { client, entries } = await connectDatabase();
-const worker = new AIWorkerService({
-  repository: new AuditRepository(entries, demoTenantId()),
-  aiService: new AIService(),
+const repository = new AuditRepository(entries, demoTenantId());
+const redisUrl = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379';
+const producerConnection = new Redis(redisUrl, { maxRetriesPerRequest: 1, connectTimeout: 2000 });
+const workerConnection = new Redis(redisUrl, { maxRetriesPerRequest: null });
+const queue = new EnrichmentQueue(producerConnection);
+const publisher = new OutboxPublisher({
+  repository,
+  queue,
   pollIntervalMs: Number(process.env.WORKER_POLL_MS ?? 1000),
 });
-
+const worker = new AIWorkerService({
+  repository,
+  publisher,
+  aiService: new AIService(provider),
+  connection: workerConnection,
+  concurrency: Number(process.env.WORKER_CONCURRENCY ?? 2),
+});
 worker.start();
+
+let stopping = false;
 async function stop(): Promise<void> {
-  worker.stop();
+  if (stopping) return;
+  stopping = true;
+  await worker.close();
+  await queue.close();
+  producerConnection.disconnect();
+  workerConnection.disconnect();
   await client.close();
 }
-process.on('SIGTERM', stop);
-process.on('SIGINT', stop);
+process.on('SIGTERM', () => void stop());
+process.on('SIGINT', () => void stop());

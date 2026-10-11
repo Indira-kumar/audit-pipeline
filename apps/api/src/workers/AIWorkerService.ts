@@ -1,42 +1,78 @@
+import { Worker } from 'bullmq';
+import type { Job } from 'bullmq';
+import type { Redis } from 'ioredis';
+import { ObjectId } from 'mongodb';
+import { enrichmentQueueName } from '../queue/EnrichmentQueue.js';
+import type { EnrichmentJob } from '../queue/EnrichmentQueue.js';
+import { OutboxPublisher } from '../queue/OutboxPublisher.js';
 import { AuditRepository } from '../repositories/AuditRepository.js';
 import { AIService } from '../services/AIService.js';
 
 interface WorkerOptions {
   repository: AuditRepository;
   aiService: AIService;
-  pollIntervalMs?: number;
+  publisher: OutboxPublisher;
+  connection: Redis;
+  concurrency?: number;
 }
 
 export class AIWorkerService {
-  private readonly repository: AuditRepository;
-  private readonly aiService: AIService;
-  private readonly pollIntervalMs: number;
-  private timer: ReturnType<typeof setInterval> | null = null;
+  private worker: Worker<EnrichmentJob> | null = null;
 
-  constructor({ repository, aiService, pollIntervalMs = 1000 }: WorkerOptions) {
-    this.repository = repository;
-    this.aiService = aiService;
-    this.pollIntervalMs = pollIntervalMs;
-  }
+  constructor(private readonly options: WorkerOptions) {}
 
   start(): void {
-    if (this.timer) return;
-    this.timer = setInterval(() => {
-      this.runOnce().catch((error: unknown) => console.error('Worker cycle failed:', error));
-    }, this.pollIntervalMs);
-    console.log('AI worker scaffold started; enrichment is part of the next module.');
+    if (this.worker) return;
+    this.options.publisher.start();
+    this.worker = new Worker<EnrichmentJob>(enrichmentQueueName, (job) => this.processJob(job), {
+      connection: this.options.connection,
+      concurrency: this.options.concurrency ?? 2,
+    });
+    this.worker.on('error', (error) => console.error('AI worker error:', error));
+    this.worker.on('failed', (job, error) => {
+      if (job) {
+        void job
+          .getState()
+          .then((state) => {
+            if (state === 'failed') {
+              return this.options.repository.markStalledFailure(
+                new ObjectId(job.data.entryId),
+                job.data.version,
+              );
+            }
+          })
+          .catch((failure: unknown) =>
+            console.error('Could not record terminal failure:', failure),
+          );
+      }
+      console.error('AI job failed:', job?.id, error);
+    });
+    console.log('AI worker and outbox publisher started.');
   }
 
-  stop(): void {
-    if (!this.timer) return;
-    clearInterval(this.timer);
-    this.timer = null;
+  async processJob(job: Job<EnrichmentJob>): Promise<void> {
+    const entry = await this.options.repository.claimPending(
+      new ObjectId(job.data.entryId),
+      job.data.version,
+    );
+    if (!entry) return; // An earlier evidence version or duplicate job.
+    try {
+      const result = await this.options.aiService.enrich(entry);
+      await this.options.repository.completeEnrichment(entry, result);
+    } catch (error) {
+      const terminal = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
+      await this.options.repository.recordFailure(
+        entry,
+        error instanceof Error ? error.message : 'AI enrichment failed.',
+        terminal,
+      );
+      throw error;
+    }
   }
 
-  async runOnce(): Promise<void> {
-    const entry = await this.repository.claimPending();
-    if (!entry) return;
-    const result = await this.aiService.enrich(entry);
-    await this.repository.completeEnrichment(entry, result);
+  async close(): Promise<void> {
+    await this.options.publisher.close();
+    await this.worker?.close();
+    this.worker = null;
   }
 }

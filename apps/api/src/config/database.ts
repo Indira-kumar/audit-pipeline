@@ -17,7 +17,14 @@ export async function connectDatabase() {
     { key: { tenantId: 1, evidenceId: 1 }, unique: true },
     { key: { tenantId: 1, timestamp: -1 } },
     { key: { tenantId: 1, 'aiMetadata.status': 1, timestamp: -1 } },
-    { key: { tenantId: 1, 'enrichmentJob.state': 1 } },
+    {
+      key: {
+        tenantId: 1,
+        'aiMetadata.status': 1,
+        'enrichmentJob.state': 1,
+        'enrichmentJob.requestedAt': 1,
+      },
+    },
   ]);
 
   return { client, entries };

@@ -1,4 +1,11 @@
 services:
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    ports:
+      - '127.0.0.1:6379:6379'
+    volumes:
+      - redis_data:/data
   mongo:
     image: mongo:8.0
     ports:
@@ -7,4 +14,5 @@ services:
       - mongo_data:/data/db
 
 volumes:
+  redis_data:
   mongo_data:

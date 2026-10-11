@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { ObjectId } from 'mongodb';
 import type { Collection } from 'mongodb';
 import type {
@@ -49,7 +50,16 @@ export class AuditRepository implements AuditStore {
   ): Promise<AuditEntry | null> {
     return this.collection.findOneAndUpdate(
       { _id: id, tenantId: this.tenantId, evidenceVersion: expectedVersion },
-      { $set: set, $inc: { evidenceVersion: 1 } },
+      {
+        $set: set,
+        $inc: { evidenceVersion: 1 },
+        $unset: {
+          'enrichmentJob.claimToken': '',
+          'enrichmentJob.leaseUntil': '',
+          'enrichmentJob.startedAt': '',
+          'enrichmentJob.lastError': '',
+        },
+      },
       { returnDocument: 'after' },
     );
   }
@@ -76,12 +86,132 @@ export class AuditRepository implements AuditStore {
       .batchSize(100);
   }
 
-  async claimPending(): Promise<AuditEntry | null> {
-    // The background enrichment module will consume the job marker later.
-    return null;
+  claimUnpublished(leaseMs: number): Promise<AuditEntry | null> {
+    const now = new Date();
+    return this.collection.findOneAndUpdate(
+      {
+        tenantId: this.tenantId,
+        'aiMetadata.status': 'PENDING',
+        $or: [
+          { 'enrichmentJob.state': 'UNPUBLISHED' },
+          { 'enrichmentJob.state': 'PUBLISHING', 'enrichmentJob.leaseUntil': { $lt: now } },
+        ],
+      },
+      {
+        $set: {
+          'enrichmentJob.state': 'PUBLISHING',
+          'enrichmentJob.claimToken': randomUUID(),
+          'enrichmentJob.leaseUntil': new Date(now.getTime() + leaseMs),
+        },
+      },
+      { sort: { 'enrichmentJob.requestedAt': 1 }, returnDocument: 'after' },
+    );
   }
 
-  async completeEnrichment(_entry: AuditEntry, _result: EnrichmentResult): Promise<void> {
-    throw new Error('Background enrichment is not implemented yet.');
+  async markPublished(entry: AuditEntry): Promise<void> {
+    await this.collection.updateOne(this.publishClaim(entry), {
+      $set: { 'enrichmentJob.state': 'PUBLISHED' },
+      $unset: { 'enrichmentJob.claimToken': '', 'enrichmentJob.leaseUntil': '' },
+    });
+  }
+
+  async releasePublishClaim(entry: AuditEntry): Promise<void> {
+    await this.collection.updateOne(this.publishClaim(entry), {
+      $set: { 'enrichmentJob.state': 'UNPUBLISHED' },
+      $unset: { 'enrichmentJob.claimToken': '', 'enrichmentJob.leaseUntil': '' },
+    });
+  }
+
+  private publishClaim(entry: AuditEntry) {
+    return {
+      _id: entry._id,
+      tenantId: this.tenantId,
+      evidenceVersion: entry.evidenceVersion,
+      'enrichmentJob.state': 'PUBLISHING' as const,
+      'enrichmentJob.claimToken': entry.enrichmentJob.claimToken,
+    };
+  }
+
+  claimPending(id: ObjectId, version: number): Promise<AuditEntry | null> {
+    return this.collection.findOneAndUpdate(
+      {
+        _id: id,
+        tenantId: this.tenantId,
+        evidenceVersion: version,
+        'aiMetadata.status': { $in: ['PENDING', 'PROCESSING'] },
+        'enrichmentJob.state': { $in: ['PUBLISHING', 'PUBLISHED', 'PROCESSING'] },
+      },
+      {
+        $set: {
+          'aiMetadata.status': 'PROCESSING',
+          'enrichmentJob.state': 'PROCESSING',
+          'enrichmentJob.claimToken': randomUUID(),
+          'enrichmentJob.startedAt': new Date(),
+        },
+        $unset: { 'enrichmentJob.leaseUntil': '', 'enrichmentJob.lastError': '' },
+      },
+      { returnDocument: 'after' },
+    );
+  }
+
+  async completeEnrichment(entry: AuditEntry, result: EnrichmentResult): Promise<boolean> {
+    const updated = await this.collection.updateOne(this.processingClaim(entry), {
+      $set: {
+        'aiMetadata.status': 'COMPLETED',
+        'aiMetadata.riskScore': result.riskScore,
+        'aiMetadata.riskLevel': result.riskLevel,
+        'aiMetadata.aiSummary': result.aiSummary,
+        'aiMetadata.anomalyFlags': result.anomalyFlags,
+        'aiMetadata.semanticVector': result.semanticVector,
+        'enrichmentJob.state': 'DONE',
+        updated: new Date(),
+      },
+      $unset: { 'enrichmentJob.claimToken': '', 'enrichmentJob.startedAt': '' },
+    });
+    return updated.matchedCount === 1;
+  }
+
+  async recordFailure(entry: AuditEntry, error: string, terminal: boolean): Promise<void> {
+    await this.collection.updateOne(this.processingClaim(entry), {
+      $set: {
+        'aiMetadata.status': terminal ? 'FAILED' : 'PENDING',
+        'enrichmentJob.state': terminal ? 'FAILED' : 'PUBLISHED',
+        'enrichmentJob.lastError': error.slice(0, 300),
+        updated: new Date(),
+      },
+      $unset: { 'enrichmentJob.claimToken': '', 'enrichmentJob.startedAt': '' },
+    });
+  }
+
+  async markStalledFailure(id: ObjectId, version: number): Promise<void> {
+    await this.collection.updateOne(
+      {
+        _id: id,
+        tenantId: this.tenantId,
+        evidenceVersion: version,
+        'aiMetadata.status': 'PROCESSING',
+        'enrichmentJob.state': 'PROCESSING',
+      },
+      {
+        $set: {
+          'aiMetadata.status': 'FAILED',
+          'enrichmentJob.state': 'FAILED',
+          'enrichmentJob.lastError': 'Worker stopped before enrichment completed.',
+          updated: new Date(),
+        },
+        $unset: { 'enrichmentJob.claimToken': '', 'enrichmentJob.startedAt': '' },
+      },
+    );
+  }
+
+  private processingClaim(entry: AuditEntry) {
+    return {
+      _id: entry._id,
+      tenantId: this.tenantId,
+      evidenceVersion: entry.evidenceVersion,
+      'aiMetadata.status': 'PROCESSING' as const,
+      'enrichmentJob.state': 'PROCESSING' as const,
+      'enrichmentJob.claimToken': entry.enrichmentJob.claimToken,
+    };
   }
 }

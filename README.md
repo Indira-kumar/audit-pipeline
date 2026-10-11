@@ -14,6 +14,10 @@ The design separates fast evidence capture from slower AI processing. A Mongo ou
 2. **API and storage:** Validate requests, use targeted MongoDB updates, and atomically mark records for enrichment when core evidence changes.
 3. **Background enrichment:** BullMQ workers call a swappable Ollama, OpenRouter, or mock provider and write version-checked AI results.
 
+## Similarity endpoint
+
+The assignment shows `POST /api/audit-entries/:id/similar`. This implementation uses `GET` because the request only reads stored entries and returns matches; it does not change audit data. The dashboard calls this GET route.
+
 ## Repository layout
 
 ```text

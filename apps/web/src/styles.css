@@ -146,6 +146,38 @@ h1 {
   border-radius: 14px;
   box-shadow: 0 8px 26px #1f3c4810;
 }
+.edit-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  overflow-y: auto;
+  border: 1px solid #dfe8ed;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 24px 72px #152b3d38;
+}
+.edit-dialog::backdrop {
+  background: #172b3d80;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.secondary-button {
+  padding: 11px 16px;
+  border: 1px solid #cfdae0;
+  border-radius: 8px;
+  background: #fff;
+  color: #485c67;
+  font-size: 13px;
+  font-weight: 700;
+}
+.secondary-button:hover:not(:disabled) {
+  background: #f5f8fa;
+}
 .panel-heading {
   display: flex;
   justify-content: space-between;

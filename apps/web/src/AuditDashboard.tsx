@@ -59,6 +59,7 @@ const currency = (value: number): string =>
 
 export class AuditDashboard extends React.Component<Record<string, never>, DashboardState> {
   private refreshTimer: ReturnType<typeof setInterval> | undefined;
+  private editorDialog = React.createRef<HTMLDialogElement>();
 
   state: DashboardState = {
     entries: [],
@@ -118,20 +119,27 @@ export class AuditDashboard extends React.Component<Record<string, never>, Dashb
   };
 
   openEditor = (entry: AuditEntry, kind: Editor['kind']): void => {
-    this.setState({
-      editor: {
-        id: entry._id,
-        evidenceId: entry.evidenceId,
-        kind,
-        evidenceVersion: entry.evidenceVersion,
-        description: entry.description,
-        monetaryImpact: String(entry.monetaryImpact),
-        controlId: entry.controlId,
-        auditorNotes: entry.aiMetadata.auditorNotes,
+    this.setState(
+      {
+        editor: {
+          id: entry._id,
+          evidenceId: entry.evidenceId,
+          kind,
+          evidenceVersion: entry.evidenceVersion,
+          description: entry.description,
+          monetaryImpact: String(entry.monetaryImpact),
+          controlId: entry.controlId,
+          auditorNotes: entry.aiMetadata.auditorNotes,
+        },
+        error: '',
+        message: '',
       },
-      error: '',
-      message: '',
-    });
+      () => this.editorDialog.current?.showModal(),
+    );
+  };
+
+  closeEditor = (): void => {
+    if (!this.state.busy) this.editorDialog.current?.close();
   };
 
   changeEditor = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
@@ -159,8 +167,8 @@ export class AuditDashboard extends React.Component<Record<string, never>, Dashb
         method: 'PUT',
         body: JSON.stringify(changes),
       });
+      this.editorDialog.current?.close();
       this.setState({
-        editor: null,
         message:
           editor.kind === 'note'
             ? 'Note saved without queuing enrichment.'
@@ -222,23 +230,24 @@ export class AuditDashboard extends React.Component<Record<string, never>, Dashb
   };
 
   renderEditor(): React.ReactNode {
-    const { editor, busy } = this.state;
+    const { editor, busy, error } = this.state;
     if (!editor) return null;
     const note = editor.kind === 'note';
     return (
-      <section className="panel edit-panel" aria-label="Edit audit entry">
+      <dialog
+        ref={this.editorDialog}
+        className="edit-dialog"
+        aria-labelledby="edit-dialog-title"
+        onClose={() => this.setState({ editor: null, error: '' })}
+        onCancel={(event) => {
+          if (busy) event.preventDefault();
+        }}
+      >
         <div className="panel-heading">
           <div>
             <p className="eyebrow">{editor.evidenceId}</p>
-            <h2>{note ? 'Edit auditor note' : 'Edit core evidence'}</h2>
+            <h2 id="edit-dialog-title">{note ? 'Edit auditor note' : 'Edit core evidence'}</h2>
           </div>
-          <button
-            className="text-button"
-            type="button"
-            onClick={() => this.setState({ editor: null })}
-          >
-            Cancel
-          </button>
         </div>
         <form onSubmit={this.saveEdit} className="entry-form">
           {note ? (
@@ -248,7 +257,8 @@ export class AuditDashboard extends React.Component<Record<string, never>, Dashb
                 name="auditorNotes"
                 value={editor.auditorNotes}
                 onChange={this.changeEditor}
-                rows={3}
+                rows={4}
+                autoFocus
               />
             </label>
           ) : (
@@ -261,6 +271,7 @@ export class AuditDashboard extends React.Component<Record<string, never>, Dashb
                   onChange={this.changeEditor}
                   rows={3}
                   required
+                  autoFocus
                 />
               </label>
               <label className="field">
@@ -286,11 +297,26 @@ export class AuditDashboard extends React.Component<Record<string, never>, Dashb
               </label>
             </div>
           )}
-          <button className="primary-button" disabled={busy}>
-            Save changes
-          </button>
+          {error && (
+            <div className="notice error" role="alert">
+              {error}
+            </div>
+          )}
+          <div className="dialog-actions">
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={this.closeEditor}
+              disabled={busy}
+            >
+              Cancel
+            </button>
+            <button className="primary-button" disabled={busy}>
+              {busy ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
         </form>
-      </section>
+      </dialog>
     );
   }
 
@@ -439,7 +465,7 @@ export class AuditDashboard extends React.Component<Record<string, never>, Dashb
           </section>
 
           <div className="workspace">
-            {error && (
+            {error && !this.state.editor && (
               <div className="notice error" role="alert">
                 {error}
               </div>
